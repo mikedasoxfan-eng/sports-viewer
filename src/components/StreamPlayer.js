@@ -213,8 +213,24 @@ export function StreamPlayer(container, { slug, game, sources }) {
 
   render();
 
+  // Block embed-triggered redirects: if the page URL changes away from our
+  // hash-based SPA (e.g. an ad tries window.top.location = ...), snap it back.
+  const currentOrigin = window.location.origin;
+  const navGuard = setInterval(() => {
+    if (window.location.origin !== currentOrigin) {
+      window.stop();
+      window.location.href = currentOrigin + '/#/';
+    }
+  }, 200);
+
+  // Also intercept beforeunload to warn about navigation
+  const beforeUnload = e => { e.preventDefault(); };
+  window.addEventListener('beforeunload', beforeUnload);
+
   return () => {
     clearLoadTimer();
+    clearInterval(navGuard);
+    window.removeEventListener('beforeunload', beforeUnload);
     if (iframeEl) { iframeEl.src = 'about:blank'; iframeEl.remove(); iframeEl = null; }
   };
 }

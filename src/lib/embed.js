@@ -55,6 +55,9 @@ export function createSecureIframe(url, title = 'Game Stream') {
   iframe.setAttribute('title', title);
   iframe.setAttribute('aria-label', title);
   iframe.setAttribute('allow', 'fullscreen; autoplay; encrypted-media');
+  // Prevent the embed from navigating the parent page (mobile redirect protection)
+  // No sandbox — the embed needs unrestricted access to function.
+  // Instead, block top-navigation via a beforeunload guard on the parent.
   iframe.className = 'w-full h-full absolute inset-0';
   iframe.src = url;
   return iframe;

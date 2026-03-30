@@ -6,13 +6,25 @@ import { DEFAULT_LEAGUE, GAME_END_GRACE_HOURS, LEAGUE_CONFIGS } from '../config.
 import { resolveTeam, normalizeTeamString } from './teams.js';
 
 /**
+ * ESPN CDN abbreviation corrections.
+ * ESPN's image paths use different abbreviations than their API for some teams.
+ */
+const ESPN_ABBR_FIX = {
+  nba: { NOP: 'no', UTA: 'utah', NYK: 'ny', SAS: 'sa', GSW: 'gs', OKC: 'okc', NOR: 'no', PHX: 'phx', WAS: 'wsh' },
+  nfl: { JAX: 'jax', WSH: 'wsh', LVR: 'lv', LAR: 'lar', LAC: 'lac', SFO: 'sf', GNB: 'gb', NWE: 'ne', NOR: 'no', KAN: 'kc', TAM: 'tb', SFN: 'sf' },
+  mlb: { ARI: 'ari', CHW: 'chw', CWS: 'chw', KCR: 'kc', SFG: 'sf', TBR: 'tb', WSN: 'wsh', SDN: 'sd', SDP: 'sd', SLN: 'stl' },
+  nhl: { VGK: 'vgs', UTA: 'utah', SJS: 'sj', NJD: 'nj', NYI: 'nyi', NYR: 'nyr', TBL: 'tb', WSH: 'wsh' }
+};
+
+/**
  * ESPN CDN logo URL from abbreviation.
  */
 function espnLogo(abbreviation, league) {
   if (!abbreviation || !league) return null;
-  const sport = LEAGUE_CONFIGS[league]?.sport;
-  if (!sport) return null;
-  const abbr = abbreviation.toLowerCase();
+  if (!LEAGUE_CONFIGS[league]) return null;
+  const upper = abbreviation.toUpperCase();
+  const fixed = ESPN_ABBR_FIX[league]?.[upper];
+  const abbr = (fixed || abbreviation).toLowerCase();
   return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${league}/500/${abbr}.png&h=80&w=80`;
 }
 
