@@ -3,7 +3,7 @@
  */
 
 import { state } from '../lib/state.js';
-import { on } from '../lib/events.js';
+import { on, emit } from '../lib/events.js';
 
 let modalEl = null;
 
@@ -33,9 +33,6 @@ function createModal() {
 
         <div class="space-y-4">
           ${settingToggle('showScores', 'Show Scores', 'Display live scores on game cards', s.showScores)}
-          ${settingToggle('showPosters', 'Show Posters', 'Display game poster images', s.showPosters)}
-          ${settingToggle('autoCycleStreams', 'Auto-Cycle Streams', 'Automatically try next source on failure', s.autoCycleStreams)}
-          ${settingToggle('liveAlerts', 'Live Alerts', 'Notify when favorited games go live', s.liveAlerts)}
         </div>
       </div>
     `;
@@ -69,6 +66,8 @@ function createModal() {
       const key = btn.dataset.setting;
       state.settings = { ...state.settings, [key]: !state.settings[key] };
       render();
+      // Re-render games list so scores show/hide immediately
+      emit('games:refresh');
     }
   });
 
@@ -80,7 +79,7 @@ function toggle(show) {
   const el = createModal();
   if (show === undefined) show = el.classList.contains('hidden');
   el.classList.toggle('hidden', !show);
-  if (show) createModal(); // re-render to pick up latest state
+  if (show) createModal();
 }
 
 export function initSettingsModal() {

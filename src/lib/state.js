@@ -33,10 +33,7 @@ const _state = {
 
   // Settings
   settings: {
-    showScores: true,
-    showPosters: true,
-    autoCycleStreams: true,
-    liveAlerts: false
+    showScores: true
   },
 
   // UI
