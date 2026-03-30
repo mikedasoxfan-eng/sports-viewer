@@ -213,24 +213,52 @@ export function StreamPlayer(container, { slug, game, sources }) {
 
   render();
 
-  // Block embed-triggered redirects: if the page URL changes away from our
-  // hash-based SPA (e.g. an ad tries window.top.location = ...), snap it back.
-  const currentOrigin = window.location.origin;
-  const navGuard = setInterval(() => {
-    if (window.location.origin !== currentOrigin) {
-      window.stop();
-      window.location.href = currentOrigin + '/#/';
-    }
-  }, 200);
+  // === Aggressive redirect/popup/navigation blocking ===
 
-  // Also intercept beforeunload to warn about navigation
-  const beforeUnload = e => { e.preventDefault(); };
+  // 1. Kill window.open entirely — no popups, no new tabs
+  const origOpen = window.open;
+  window.open = () => null;
+
+  // 2. Block beforeunload — prevents navigating away
+  const beforeUnload = e => { e.preventDefault(); e.returnValue = ''; };
   window.addEventListener('beforeunload', beforeUnload);
+
+  // 3. Intercept all click events that try to navigate externally
+  const clickGuard = e => {
+    const a = e.target.closest('a[href]');
+    if (a && a.closest('iframe')) return; // inside iframe, CSP handles it
+    if (a) {
+      const href = a.getAttribute('href') || '';
+      // Allow internal hash links
+      if (href.startsWith('#') || href.startsWith('javascript:')) return;
+      // Allow same-origin links
+      try {
+        const url = new URL(href, window.location.origin);
+        if (url.origin === window.location.origin) return;
+      } catch {}
+      // Block everything else
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+  document.addEventListener('click', clickGuard, true);
+
+  // 4. Poll for location hijacking — snap back if origin changes
+  const currentHref = window.location.href;
+  const navGuard = setInterval(() => {
+    // If something changed the full URL away from our origin, force back
+    if (window.location.origin !== new URL(currentHref).origin) {
+      window.stop();
+      window.location.replace(currentHref);
+    }
+  }, 100);
 
   return () => {
     clearLoadTimer();
     clearInterval(navGuard);
+    window.open = origOpen;
     window.removeEventListener('beforeunload', beforeUnload);
+    document.removeEventListener('click', clickGuard, true);
     if (iframeEl) { iframeEl.src = 'about:blank'; iframeEl.remove(); iframeEl = null; }
   };
 }
