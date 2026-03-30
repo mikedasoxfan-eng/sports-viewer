@@ -64,16 +64,11 @@ export function createSecureIframe(url, title = 'Game Stream') {
   iframe.setAttribute('title', title);
   iframe.setAttribute('aria-label', title);
   iframe.setAttribute('allow', 'fullscreen; autoplay; encrypted-media; picture-in-picture');
-  iframe.setAttribute('allowfullscreen', '');
 
-  // Sandbox: the key to blocking ads. This is what the old version used.
-  // allow-scripts: video player needs JS
-  // allow-same-origin: player needs cookies/storage
-  // allow-forms: some players use forms
-  // allow-presentation: fullscreen API
-  // NOT included: allow-top-navigation, allow-popups, allow-downloads
-  // This blocks ad redirects, popups, and drive-by downloads.
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
+  // Sandbox blocks ad redirects, drive-by downloads, and top-navigation.
+  // allow-popups needed for JW Player's internal UI components.
+  // NOT included: allow-top-navigation, allow-top-navigation-by-user-activation, allow-downloads
+  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-popups');
 
   iframe.className = 'w-full h-full absolute inset-0';
   iframe.src = url;
