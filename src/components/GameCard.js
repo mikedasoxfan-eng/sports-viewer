@@ -22,13 +22,15 @@ function formatScore(team) {
 
 function statusBadge(game) {
   if (game.isLive) {
-    return `<span class="inline-flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-live">
+    const detail = game.statusDetail || 'Live';
+    return `<span class="inline-flex items-center gap-1.5 font-mono text-[11px] font-medium tracking-wider text-live">
       <span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse-live"></span>
-      Live
+      ${detail}
     </span>`;
   }
   if (game.isEnded) {
-    return `<span class="font-mono text-[11px] font-medium uppercase tracking-wider text-ink-muted">Final</span>`;
+    const detail = game.statusDetail || 'Final';
+    return `<span class="font-mono text-[11px] font-medium tracking-wider text-ink-muted">${detail}</span>`;
   }
   return `<span class="font-mono text-[11px] font-medium text-ink-muted">${game.formattedTime || 'TBD'}</span>`;
 }

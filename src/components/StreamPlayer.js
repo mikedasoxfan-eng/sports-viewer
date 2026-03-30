@@ -5,6 +5,7 @@
 import { buildEmbedUrl, createSecureIframe, sanitizeSlug } from '../lib/embed.js';
 import { VALID_SOURCES, SOURCE_LABELS, MAX_STREAMS, EMBED_LOAD_TIMEOUT } from '../config.js';
 import { state } from '../lib/state.js';
+import { activateGuard } from '../lib/guard.js';
 
 export function StreamPlayer(container, { slug, game, sources }) {
   let currentSource = sources?.[0]?.source || game?.currentSource || 'admin';
@@ -213,52 +214,12 @@ export function StreamPlayer(container, { slug, game, sources }) {
 
   render();
 
-  // === Aggressive redirect/popup/navigation blocking ===
-
-  // 1. Kill window.open entirely — no popups, no new tabs
-  const origOpen = window.open;
-  window.open = () => null;
-
-  // 2. Block beforeunload — prevents navigating away
-  const beforeUnload = e => { e.preventDefault(); e.returnValue = ''; };
-  window.addEventListener('beforeunload', beforeUnload);
-
-  // 3. Intercept all click events that try to navigate externally
-  const clickGuard = e => {
-    const a = e.target.closest('a[href]');
-    if (a && a.closest('iframe')) return; // inside iframe, CSP handles it
-    if (a) {
-      const href = a.getAttribute('href') || '';
-      // Allow internal hash links
-      if (href.startsWith('#') || href.startsWith('javascript:')) return;
-      // Allow same-origin links
-      try {
-        const url = new URL(href, window.location.origin);
-        if (url.origin === window.location.origin) return;
-      } catch {}
-      // Block everything else
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-  document.addEventListener('click', clickGuard, true);
-
-  // 4. Poll for location hijacking — snap back if origin changes
-  const currentHref = window.location.href;
-  const navGuard = setInterval(() => {
-    // If something changed the full URL away from our origin, force back
-    if (window.location.origin !== new URL(currentHref).origin) {
-      window.stop();
-      window.location.replace(currentHref);
-    }
-  }, 100);
+  // Activate nuclear navigation guard
+  const deactivateGuard = activateGuard();
 
   return () => {
     clearLoadTimer();
-    clearInterval(navGuard);
-    window.open = origOpen;
-    window.removeEventListener('beforeunload', beforeUnload);
-    document.removeEventListener('click', clickGuard, true);
+    deactivateGuard();
     if (iframeEl) { iframeEl.src = 'about:blank'; iframeEl.remove(); iframeEl = null; }
   };
 }

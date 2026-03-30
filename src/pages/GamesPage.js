@@ -3,12 +3,12 @@
  */
 
 import { state } from '../lib/state.js';
-import { fetchGames, attachScores } from '../lib/api.js';
+import { fetchGames } from '../lib/api.js';
 import { on } from '../lib/events.js';
 import { FilterBar } from '../components/FilterBar.js';
 import { GameGrid } from '../components/GameGrid.js';
 import { GamesGridSkeleton } from '../components/Loader.js';
-import { enrichGame, sortEnrichedGames } from '../lib/enrich.js';
+import { enrichGame, sortEnrichedGames, applyEspnStatus } from '../lib/enrich.js';
 
 export function GamesPage(container) {
   const cleanups = [];
@@ -44,13 +44,13 @@ export function GamesPage(container) {
 
     try {
       const { games } = await fetchGames(state.filter, state.league, { force });
-      await attachScores(games, state.league);
 
-      const enriched = sortEnrichedGames(
-        games.map(g => enrichGame(g)).filter(Boolean)
-      );
-      state.games = enriched;
-      GameGrid(gridMount, enriched);
+      // Enrich with team logos first, then cross-ref ESPN for live status + scores
+      const enriched = games.map(g => enrichGame(g)).filter(Boolean);
+      await applyEspnStatus(enriched);
+      const sorted = sortEnrichedGames(enriched);
+      state.games = sorted;
+      GameGrid(gridMount, sorted);
     } catch (err) {
       console.error('Failed to load games:', err);
       if (isFirstLoad) {
