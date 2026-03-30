@@ -1,31 +1,28 @@
 /**
- * Stream player — iframe embed with source/stream selectors.
+ * Stream player — iframe embed with queue-based source cycling.
  */
 
-import { buildEmbedUrl, createSecureIframe, sanitizeSlug } from '../lib/embed.js';
-import { VALID_SOURCES, SOURCE_LABELS, MAX_STREAMS, EMBED_LOAD_TIMEOUT } from '../config.js';
-import { state } from '../lib/state.js';
+import { buildEmbedUrl, createSecureIframe } from '../lib/embed.js';
+import { EMBED_LOAD_TIMEOUT } from '../config.js';
 import { activateGuard } from '../lib/guard.js';
 
 export function StreamPlayer(container, { slug, game, sources }) {
   // Build ordered list of embed URLs to try
-  // Prefer SportSRC embedUrls (embed.streamapi.cc) — much cleaner, less ad crap
+  // Prefer SportSRC embedUrls (embed.streamapi.cc) — cleaner, less ad crap
   const embedQueue = [];
 
-  // 1. SportSRC sources with direct embed URLs (cleanest)
   if (sources?.length) {
     sources.forEach(s => {
-      if (s.embedUrl) embedQueue.push({ url: s.embedUrl, label: `${s.source || 'Source'} #${s.streamNo || 1}`, source: s.source });
+      if (s.embedUrl) embedQueue.push({ url: s.embedUrl, label: `${s.source || 'Source'} #${s.streamNo || 1}` });
     });
   }
 
-  // 2. Fallback: build embedsports.top URLs from slug
+  // Fallback: build embedsports.top URLs from slug
   if (slug) {
-    const fallbackSources = ['admin', 'charlie', 'delta', 'echo', 'golf'];
-    for (const src of fallbackSources) {
+    for (const src of ['admin', 'charlie', 'delta', 'echo', 'golf']) {
       for (let i = 1; i <= 3; i++) {
         const url = buildEmbedUrl(slug, i, src);
-        if (url) embedQueue.push({ url, label: `${src} #${i}`, source: src });
+        if (url) embedQueue.push({ url, label: `${src} #${i}` });
       }
     }
   }
@@ -34,12 +31,8 @@ export function StreamPlayer(container, { slug, game, sources }) {
   let loadTimer = null;
   let iframeEl = null;
 
-  const currentSource = sources?.[0]?.source || game?.currentSource || 'admin';
-  const availableSources = sources?.length
-    ? [...new Set(sources.map(s => s.source).filter(Boolean))]
-    : VALID_SOURCES;
-
   function render() {
+    const total = embedQueue.length;
     container.innerHTML = `
       <div class="rounded-4xl bg-surface-card shadow-diffused border border-ink-faint/15 p-2
                   transition-shadow duration-500 ease-smooth">
@@ -47,7 +40,7 @@ export function StreamPlayer(container, { slug, game, sources }) {
           <div id="embed-loading" class="absolute inset-0 flex items-center justify-center bg-ink z-10">
             <div class="flex flex-col items-center gap-3">
               <div class="w-6 h-6 border-2 border-surface-card/30 border-t-surface-card rounded-full animate-[spin_0.8s_linear_infinite]"></div>
-              <span class="font-mono text-xs text-surface-card/60 uppercase tracking-wider">Loading stream</span>
+              <span id="loading-label" class="font-mono text-xs text-surface-card/60 uppercase tracking-wider">Loading stream</span>
             </div>
           </div>
           <div id="embed-error" class="absolute inset-0 flex items-center justify-center bg-ink z-10 hidden">
@@ -57,10 +50,10 @@ export function StreamPlayer(container, { slug, game, sources }) {
                   <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
                 </svg>
               </div>
-              <p class="font-mono text-xs text-surface-card/60 uppercase tracking-wider">Stream unavailable</p>
+              <p class="font-mono text-xs text-surface-card/60 uppercase tracking-wider">No working streams found</p>
               <button id="retry-btn" class="px-4 py-2 rounded-full bg-white/10 text-surface-card text-sm font-medium
                         transition-all duration-300 ease-smooth hover:bg-white/20 active:scale-[0.97]">
-                Try next source
+                Retry from start
               </button>
             </div>
           </div>
@@ -68,37 +61,22 @@ export function StreamPlayer(container, { slug, game, sources }) {
         </div>
       </div>
 
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4
+      <div class="flex items-center justify-between mt-4
                   rounded-2xl bg-surface-card shadow-card border border-ink-faint/15 p-3">
-        <div class="flex items-center gap-4 flex-wrap">
-          <div class="flex items-center gap-2">
-            <label class="font-mono text-[10px] text-ink-muted uppercase tracking-widest">Source</label>
-            <select id="source-select" class="font-mono text-xs bg-surface-elevated border border-ink-faint/20
-                      rounded-lg px-2.5 py-1.5 text-ink appearance-none cursor-pointer
-                      transition-all duration-300 ease-smooth hover:border-ink-faint/40
-                      focus:outline-none focus:ring-2 focus:ring-accent/30">
-              ${availableSources.map(s => `
-                <option value="${s}" ${s === currentSource ? 'selected' : ''}>
-                  ${SOURCE_LABELS[s] || s}
-                </option>
-              `).join('')}
-            </select>
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="font-mono text-[10px] text-ink-muted uppercase tracking-widest">Stream</label>
-            <div class="flex gap-1" id="stream-pills">
-              ${Array.from({ length: MAX_STREAMS }, (_, i) => `
-                <button class="w-8 h-8 rounded-lg font-mono text-xs font-medium
-                              transition-all duration-300 ease-smooth active:scale-[0.95]
-                              ${i + 1 === currentStream
-                                ? 'bg-ink text-surface-card shadow-bezel'
-                                : 'bg-surface-elevated text-ink-secondary hover:text-ink hover:bg-surface-elevated/80'}"
-                        data-stream="${i + 1}">
-                  ${i + 1}
-                </button>
-              `).join('')}
-            </div>
-          </div>
+        <div class="flex items-center gap-3">
+          <button id="prev-btn" class="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center
+                    text-ink-muted hover:text-ink transition-all duration-300 ease-smooth active:scale-[0.95]"
+                  title="Previous source">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <span id="source-label" class="font-mono text-xs text-ink-secondary min-w-[80px] text-center">
+            ${total > 0 ? `1 / ${total}` : 'No sources'}
+          </span>
+          <button id="next-btn" class="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center
+                    text-ink-muted hover:text-ink transition-all duration-300 ease-smooth active:scale-[0.95]"
+                  title="Next source">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
         </div>
         <button id="fullscreen-btn" class="px-3 py-1.5 rounded-lg font-mono text-[10px] uppercase tracking-widest
                   text-ink-muted bg-surface-elevated border border-ink-faint/20
@@ -113,6 +91,14 @@ export function StreamPlayer(container, { slug, game, sources }) {
     loadStream();
   }
 
+  function updateLabel() {
+    const label = container.querySelector('#source-label');
+    if (label && embedQueue.length) {
+      const entry = embedQueue[currentIndex];
+      label.textContent = `${currentIndex + 1} / ${embedQueue.length}`;
+    }
+  }
+
   function loadStream() {
     if (currentIndex >= embedQueue.length) {
       showError();
@@ -122,9 +108,9 @@ export function StreamPlayer(container, { slug, game, sources }) {
     const entry = embedQueue[currentIndex];
     showLoading();
     clearLoadTimer();
+    updateLabel();
 
-    // Update loading label
-    const loadingLabel = container.querySelector('#embed-loading span');
+    const loadingLabel = container.querySelector('#loading-label');
     if (loadingLabel) loadingLabel.textContent = `Trying ${entry.label}...`;
 
     const target = container.querySelector('#embed-target');
@@ -145,31 +131,30 @@ export function StreamPlayer(container, { slug, game, sources }) {
     iframeEl.addEventListener('load', () => {
       clearLoadTimer();
       hideLoading();
+      updateLabel();
     });
 
-    // Auto-cycle on timeout
     loadTimer = setTimeout(() => cycleNext(), EMBED_LOAD_TIMEOUT);
-
     target.appendChild(iframeEl);
   }
 
   function showLoading() {
-    const loading = container.querySelector('#embed-loading');
-    const error = container.querySelector('#embed-error');
-    if (loading) loading.classList.remove('hidden');
-    if (error) error.classList.add('hidden');
+    const l = container.querySelector('#embed-loading');
+    const e = container.querySelector('#embed-error');
+    if (l) l.classList.remove('hidden');
+    if (e) e.classList.add('hidden');
   }
 
   function hideLoading() {
-    const loading = container.querySelector('#embed-loading');
-    if (loading) loading.classList.add('hidden');
+    const l = container.querySelector('#embed-loading');
+    if (l) l.classList.add('hidden');
   }
 
   function showError() {
-    const loading = container.querySelector('#embed-loading');
-    const error = container.querySelector('#embed-error');
-    if (loading) loading.classList.add('hidden');
-    if (error) error.classList.remove('hidden');
+    const l = container.querySelector('#embed-loading');
+    const e = container.querySelector('#embed-error');
+    if (l) l.classList.add('hidden');
+    if (e) e.classList.remove('hidden');
   }
 
   function clearLoadTimer() {
@@ -185,38 +170,20 @@ export function StreamPlayer(container, { slug, game, sources }) {
     loadStream();
   }
 
-  function updateStreamPills() {
-    container.querySelectorAll('[data-stream]').forEach(btn => {
-      const id = parseInt(btn.dataset.stream);
-      btn.className = `w-8 h-8 rounded-lg font-mono text-xs font-medium
-        transition-all duration-300 ease-smooth active:scale-[0.95]
-        ${id === currentStream
-          ? 'bg-ink text-surface-card shadow-bezel'
-          : 'bg-surface-elevated text-ink-secondary hover:text-ink hover:bg-surface-elevated/80'}`;
-    });
-  }
-
-  function updateSourceSelect() {
-    const sel = container.querySelector('#source-select');
-    if (sel) sel.value = currentSource;
+  function cyclePrev() {
+    if (currentIndex > 0) {
+      currentIndex--;
+      loadStream();
+    }
   }
 
   function bindEvents() {
-    container.querySelector('#source-select')?.addEventListener('change', e => {
-      currentSource = e.target.value;
-      currentStream = 1;
-      updateStreamPills();
+    container.querySelector('#next-btn')?.addEventListener('click', cycleNext);
+    container.querySelector('#prev-btn')?.addEventListener('click', cyclePrev);
+    container.querySelector('#retry-btn')?.addEventListener('click', () => {
+      currentIndex = 0;
       loadStream();
     });
-
-    container.querySelector('#stream-pills')?.addEventListener('click', e => {
-      const btn = e.target.closest('[data-stream]');
-      if (!btn) return;
-      currentStream = parseInt(btn.dataset.stream);
-      updateStreamPills();
-      loadStream();
-    });
-
     container.querySelector('#fullscreen-btn')?.addEventListener('click', () => {
       const box = container.querySelector('#embed-box');
       if (box) {
@@ -224,13 +191,10 @@ export function StreamPlayer(container, { slug, game, sources }) {
         else box.requestFullscreen?.();
       }
     });
-
-    container.querySelector('#retry-btn')?.addEventListener('click', cycleNext);
   }
 
   render();
 
-  // Activate nuclear navigation guard
   const deactivateGuard = activateGuard();
 
   return () => {

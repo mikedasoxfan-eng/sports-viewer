@@ -20,6 +20,76 @@ const LEAGUE_FROM_CATEGORY = {
   'hockey': 'nhl'
 };
 
+// Only show major US professional league teams
+// Matches containing these keywords are filtered OUT
+const EXCLUDE_KEYWORDS = [
+  // Minor/college leagues
+  'ncaa', 'college', 'university', 'g league', 'gleague', 'g-league',
+  'wnba', 'cfl', 'xfl', 'ufl', 'usfl', 'arena',
+  'minor league', 'triple-a', 'double-a', 'single-a',
+  'ahl', 'echl', 'khl', 'shl', 'liiga',
+  // International
+  'euroleague', 'eurocup', 'fiba', 'bbl', 'acb', 'lnb',
+  'kbo', 'npb', 'cpbl', 'wbc',
+  'iihf', 'champions hockey', 'world juniors',
+  'premier league', 'la liga', 'serie a', 'bundesliga', 'ligue 1',
+  'mls', 'liga mx', 'champions league', 'europa league',
+  'afl', 'nrl', 'super rugby', 'top 14',
+  // Other
+  'olympics', 'paralympics', 'all-star', 'all star', 'pro bowl',
+  'draft', 'combine', 'preseason', 'exhibition',
+  'women', 'u19', 'u20', 'u21', 'u23', 'junior',
+];
+
+// Known pro team keywords per league — at least one must appear
+const PRO_TEAM_KEYWORDS = {
+  nba: [
+    'hawks', 'celtics', 'nets', 'hornets', 'bulls', 'cavaliers', 'mavericks',
+    'nuggets', 'pistons', 'warriors', 'rockets', 'pacers', 'clippers', 'lakers',
+    'grizzlies', 'heat', 'bucks', 'timberwolves', 'pelicans', 'knicks', 'thunder',
+    'magic', '76ers', 'sixers', 'suns', 'trail blazers', 'blazers', 'kings',
+    'spurs', 'raptors', 'jazz', 'wizards',
+  ],
+  nfl: [
+    'bills', 'dolphins', 'patriots', 'jets', 'ravens', 'bengals', 'browns',
+    'steelers', 'texans', 'colts', 'jaguars', 'titans', 'broncos', 'chiefs',
+    'raiders', 'chargers', 'cowboys', 'giants', 'eagles', 'commanders', 'bears',
+    'lions', 'packers', 'vikings', 'falcons', 'panthers', 'saints', 'buccaneers',
+    'cardinals', 'rams', '49ers', 'seahawks',
+  ],
+  mlb: [
+    'orioles', 'red sox', 'yankees', 'rays', 'blue jays', 'white sox', 'guardians',
+    'tigers', 'royals', 'twins', 'astros', 'angels', 'athletics', 'mariners',
+    'rangers', 'braves', 'marlins', 'mets', 'phillies', 'nationals', 'cubs',
+    'reds', 'brewers', 'pirates', 'cardinals', 'diamondbacks', 'rockies',
+    'dodgers', 'padres', 'giants',
+  ],
+  nhl: [
+    'ducks', 'bruins', 'sabres', 'flames', 'hurricanes', 'blackhawks', 'avalanche',
+    'blue jackets', 'stars', 'red wings', 'oilers', 'panthers', 'kings', 'wild',
+    'canadiens', 'predators', 'devils', 'islanders', 'rangers', 'senators',
+    'flyers', 'penguins', 'sharks', 'kraken', 'blues', 'lightning', 'maple leafs',
+    'canucks', 'golden knights', 'capitals', 'jets', 'utah hockey',
+  ]
+};
+
+function isProfessionalMatch(match, league) {
+  const title = (match.title || '').toLowerCase();
+  const id = (match.id || '').toLowerCase();
+  const text = `${title} ${id}`;
+
+  // Exclude known non-pro keywords
+  if (EXCLUDE_KEYWORDS.some(kw => text.includes(kw))) return false;
+
+  // Must contain at least one known pro team name
+  const teams = PRO_TEAM_KEYWORDS[league];
+  if (teams) {
+    return teams.some(t => text.includes(t));
+  }
+
+  return true;
+}
+
 async function apiFetch(params) {
   const url = new URL(API_BASE);
   for (const [k, v] of Object.entries(params)) {
@@ -43,14 +113,14 @@ export async function fetchSportsrcMatches(league) {
     const cat = CATEGORY_MAP[league];
     if (!cat) return [];
     const matches = await apiFetch({ data: 'matches', category: cat });
-    return (matches || []).map(m => normalizeMatch(m, league));
+    return (matches || []).filter(m => isProfessionalMatch(m, league)).map(m => normalizeMatch(m, league));
   }
 
   // Fetch all leagues in parallel
   const results = await Promise.allSettled(
     Object.entries(CATEGORY_MAP).map(async ([lg, cat]) => {
       const matches = await apiFetch({ data: 'matches', category: cat });
-      return (matches || []).map(m => normalizeMatch(m, lg));
+      return (matches || []).filter(m => isProfessionalMatch(m, lg)).map(m => normalizeMatch(m, lg));
     })
   );
 
