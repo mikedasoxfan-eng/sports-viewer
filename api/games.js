@@ -1,6 +1,5 @@
 import { isAuthenticated } from '../server/middleware/auth.js';
 import { createCache } from '../server/middleware/cache.js';
-import { fetchSportsrcMatches, fetchSportsrcDetail } from '../server/services/sportsrc.js';
 import { fetchMatches } from '../server/services/streamed.js';
 import { fetchScoreboard } from '../server/services/espn.js';
 import {
@@ -27,38 +26,25 @@ export default async function handler(req, res) {
     }
   }
 
-  // Try SportSRC first
-  try {
-    const raw = await fetchSportsrcMatches(league);
-    const sorted = sortGames(raw, league);
-    const filtered = filterGames(sorted, filter);
-    const result = { games: filtered, meta: { sourceType: 'sportsrc', league, filter, count: filtered.length } };
-    gamesCache.set(cacheKey, result);
-    return res.json(result);
-  } catch {}
-
-  // Fallback: streamed.pk
   try {
     const [live] = await fetchMatches('matches/live');
     const [all] = await fetchMatches('matches/all');
     const raw = league === 'all' ? buildGamesForAll({ live, all }) : buildGamesForLeague({ live, all }, league);
     const sorted = sortGames(raw, league);
     const filtered = filterGames(sorted, filter);
-    const result = { games: filtered, meta: { sourceType: 'streamed', league, filter, count: filtered.length } };
+    const result = { games: filtered, meta: { sourceType: 'api', league, filter, count: filtered.length } };
     gamesCache.set(cacheKey, result);
     return res.json(result);
-  } catch {}
-
-  // Fallback: ESPN
-  try {
-    if (league !== 'all') {
-      const events = await fetchScoreboard(league);
-      const games = buildGamesFromScoreboard(events, league);
-      const sorted = sortGames(games, league);
-      const filtered = filterGames(sorted, filter);
-      return res.json({ games: filtered, meta: { sourceType: 'espn_scoreboard', league, filter, count: filtered.length } });
-    }
-  } catch {}
-
-  return res.json({ games: [], meta: { error: 'All sources failed' } });
+  } catch (err) {
+    try {
+      if (league !== 'all') {
+        const events = await fetchScoreboard(league);
+        const games = buildGamesFromScoreboard(events, league);
+        const sorted = sortGames(games, league);
+        const filtered = filterGames(sorted, filter);
+        return res.json({ games: filtered, meta: { sourceType: 'espn_scoreboard', league, filter, count: filtered.length } });
+      }
+    } catch {}
+    return res.json({ games: [], meta: { error: err.message } });
+  }
 }
