@@ -65,10 +65,9 @@ export function createSecureIframe(url, title = 'Game Stream') {
   iframe.setAttribute('aria-label', title);
   iframe.setAttribute('allow', 'fullscreen; autoplay; encrypted-media; picture-in-picture');
 
-  // Sandbox blocks ad redirects, drive-by downloads, and top-navigation.
-  // allow-popups needed for JW Player's internal UI components.
-  // NOT included: allow-top-navigation, allow-top-navigation-by-user-activation, allow-downloads
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-popups');
+  // No sandbox — the embed player (JW Player/bundle-jw.js) breaks with any sandbox
+  // configuration. The providers changed their player setup since the old version.
+  // Ad protection relies on: CSP frame-src whitelist + JS navigation guard.
 
   iframe.className = 'w-full h-full absolute inset-0';
   iframe.src = url;
