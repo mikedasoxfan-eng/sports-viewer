@@ -35,7 +35,7 @@ const _state = {
   settings: {
     showScores: true,
     showPosters: true,
-    autoCycleStreams: false,
+    autoCycleStreams: true,
     liveAlerts: false
   },
 

@@ -35,6 +35,26 @@ function resolveTeamWithLogo(raw, league) {
 }
 
 /**
+ * Our abbreviations → ESPN scoreboard abbreviations.
+ * ESPN's scoreboard uses shorter forms for some teams.
+ */
+const TO_ESPN_ABBR = {
+  NOP: 'NO', NYK: 'NY', GSW: 'GS', SAS: 'SA', NOR: 'NO',
+  PHO: 'PHX', BRK: 'BKN', CHA: 'CHA', UTA: 'UTAH',
+  JAX: 'JAX', LVR: 'LV', GNB: 'GB', NWE: 'NE', KAN: 'KC',
+  TAM: 'TB', SFO: 'SF', LAR: 'LAR', LAC: 'LAC',
+  ARI: 'ARI', CHW: 'CHW', CWS: 'CHW', KCR: 'KC',
+  SFG: 'SF', TBR: 'TB', WSN: 'WSH', SDN: 'SD', SDP: 'SD', SLN: 'STL',
+  VGK: 'VGS', SJS: 'SJ', NJD: 'NJ', TBL: 'TB', WPG: 'WPG',
+};
+
+function toEspnAbbr(abbr) {
+  if (!abbr) return '';
+  const upper = abbr.toUpperCase();
+  return TO_ESPN_ABBR[upper] || upper;
+}
+
+/**
  * Cross-reference ESPN scoreboard for accurate live/final status and scores.
  * Mutates the games array in place.
  */
@@ -45,55 +65,65 @@ export async function applyEspnStatus(games) {
     const sb = await fetchScoreboard(league);
     if (!sb) return;
     const index = buildScoreIndex(sb);
-    const events = sb.events || [];
 
     games.forEach(game => {
       if ((game.league || DEFAULT_LEAGUE) !== league) return;
       const away = game.awayTeam || {};
       const home = game.homeTeam || {};
 
-      // Find matching ESPN event
       let event = null;
+
+      // Try abbreviation match (converting our abbrs to ESPN format)
       if (away.abbreviation && home.abbreviation) {
-        const key = [away.abbreviation.toUpperCase(), home.abbreviation.toUpperCase()].sort().join('|');
-        event = index.byAbbr.get(key);
+        const a = toEspnAbbr(away.abbreviation);
+        const h = toEspnAbbr(home.abbreviation);
+        event = index.byAbbr.get([a, h].sort().join('|'));
+        // Also try raw abbreviations
+        if (!event) {
+          const key = [away.abbreviation.toUpperCase(), home.abbreviation.toUpperCase()].sort().join('|');
+          event = index.byAbbr.get(key);
+        }
       }
+
+      // Fallback: name match
       if (!event) {
         const an = normalizeTeamName(away.name);
         const hn = normalizeTeamName(home.name);
         if (an && hn) event = index.byName.get([an, hn].sort().join('|'));
       }
 
-      if (event) {
-        // Update live/ended status from ESPN
-        const status = event?.competitions?.[0]?.status?.type || event?.status?.type || {};
-        const state = (status.state || '').toLowerCase();
-        if (state === 'in' || state === 'live') {
-          game.isLive = true;
-          game.isEnded = false;
-          game.isUpcoming = false;
-          game.statusDetail = status.shortDetail || status.detail || 'Live';
-        } else if (state === 'post' || status.completed) {
-          game.isLive = false;
-          game.isEnded = true;
-          game.isUpcoming = false;
-          game.statusDetail = status.shortDetail || status.detail || 'Final';
-        } else if (state === 'pre') {
-          game.isLive = false;
-          game.isEnded = false;
-          game.isUpcoming = true;
-          game.statusDetail = status.shortDetail || status.detail || '';
-        }
+      if (!event) return;
 
-        // Update scores
-        const comps = event?.competitions?.[0]?.competitors || [];
-        const ac = comps.find(c => c?.homeAway === 'away') || comps[0];
-        const hc = comps.find(c => c?.homeAway === 'home') || comps[1];
-        const as = extractScore(ac);
-        const hs = extractScore(hc);
-        if (as != null) game.awayTeam = { ...game.awayTeam, score: as };
-        if (hs != null) game.homeTeam = { ...game.homeTeam, score: hs };
+      // Update status from ESPN
+      const status = event?.competitions?.[0]?.status?.type || event?.status?.type || {};
+      const state = (status.state || '').toLowerCase();
+      const detail = status.shortDetail || status.detail || '';
+
+      if (state === 'in' || state === 'live') {
+        game.isLive = true;
+        game.isEnded = false;
+        game.isUpcoming = false;
+        game.statusDetail = detail || 'Live';
+      } else if (state === 'post' || status.completed) {
+        game.isLive = false;
+        game.isEnded = true;
+        game.isUpcoming = false;
+        game.statusDetail = detail || 'Final';
+      } else if (state === 'pre') {
+        game.isLive = false;
+        game.isEnded = false;
+        game.isUpcoming = true;
+        game.statusDetail = detail || '';
       }
+
+      // Update scores
+      const comps = event?.competitions?.[0]?.competitors || [];
+      const ac = comps.find(c => c?.homeAway === 'away') || comps[0];
+      const hc = comps.find(c => c?.homeAway === 'home') || comps[1];
+      const as = extractScore(ac);
+      const hs = extractScore(hc);
+      if (as != null) game.awayTeam = { ...game.awayTeam, score: as };
+      if (hs != null) game.homeTeam = { ...game.homeTeam, score: hs };
     });
   }));
 }

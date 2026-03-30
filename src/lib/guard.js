@@ -1,149 +1,52 @@
 /**
- * Nuclear-grade navigation/redirect/popup blocker.
- * Activated when watching a stream. Prevents embeds from:
- * - Opening new tabs/windows
- * - Navigating the parent page
- * - Triggering downloads
- * - Using history manipulation to redirect
- * - Mobile ad redirect tricks
- *
- * Returns a cleanup function.
+ * Nuclear navigation/redirect/popup/ad blocker.
+ * Activated when watching a stream. Returns a cleanup function.
  */
+
+// Known ad/tracker domains to nuke on sight
+const AD_DOMAINS = [
+  'pomxd.com', 'torreyhealthtracker', 'doubleclick.net', 'googlesyndication',
+  'adservice', 'amazon-adsystem', 'facebook.net', 'fbcdn.net',
+  'tiktok', 'analytics', 'tracker', 'clickid', 'utm_source',
+  'srvtrck', 'popads', 'popcash', 'propellerads', 'exoclick',
+  'juicyads', 'trafficjunky', 'adsterra', 'clickadu', 'hilltopads',
+  'evadav.com', 'monetag', 'profitablegatecpm', 'richpush',
+  'pushground', 'pushhouse', 'galaksion', 'clickaine',
+];
+
+function isAdUrl(url) {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  return AD_DOMAINS.some(d => lower.includes(d));
+}
 
 export function activateGuard() {
   const savedHref = window.location.href;
   const savedHash = window.location.hash;
+  const savedOrigin = window.location.origin;
   const cleanups = [];
 
-  // 1. Kill window.open — no popups, no new tabs, no nothing
+  // === 1. Kill window.open completely ===
   const origOpen = window.open;
   window.open = () => null;
   cleanups.push(() => { window.open = origOpen; });
 
-  // 2. Block beforeunload
-  const onBeforeUnload = e => { e.preventDefault(); e.returnValue = ''; return ''; };
-  window.addEventListener('beforeunload', onBeforeUnload);
-  cleanups.push(() => window.removeEventListener('beforeunload', onBeforeUnload));
-
-  // 3. Block pagehide (mobile fires this instead of beforeunload)
-  const onPageHide = e => {
-    // If the page is being hidden due to navigation (not tab switch), snap back
-    if (e.persisted === false) {
-      window.location.replace(savedHref);
-    }
-  };
-  window.addEventListener('pagehide', onPageHide);
-  cleanups.push(() => window.removeEventListener('pagehide', onPageHide));
-
-  // 4. Flood history with entries so back button can't escape
-  for (let i = 0; i < 20; i++) {
-    history.pushState({ guard: true }, '', savedHash);
-  }
-  const onPopState = e => {
-    // Any history navigation — push back to our page
-    history.pushState({ guard: true }, '', savedHash);
-  };
-  window.addEventListener('popstate', onPopState);
-  cleanups.push(() => window.removeEventListener('popstate', onPopState));
-
-  // 5. Intercept ALL click/touch events at document level (capture phase)
-  const blockExternalNav = e => {
-    const a = e.target?.closest?.('a[href]');
-    if (!a) return;
-    const href = a.getAttribute('href') || '';
-    if (href.startsWith('#')) return; // internal hash nav is fine
-    if (href.startsWith('javascript:')) { e.preventDefault(); e.stopImmediatePropagation(); return; }
-    try {
-      const url = new URL(href, window.location.origin);
-      if (url.origin === window.location.origin) return; // same origin ok
-    } catch {}
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    e.stopPropagation();
-  };
-  document.addEventListener('click', blockExternalNav, true);
-  document.addEventListener('auxclick', blockExternalNav, true); // middle click
-  document.addEventListener('touchend', blockExternalNav, true); // mobile tap
-  cleanups.push(() => {
-    document.removeEventListener('click', blockExternalNav, true);
-    document.removeEventListener('auxclick', blockExternalNav, true);
-    document.removeEventListener('touchend', blockExternalNav, true);
-  });
-
-  // 6. Block form submissions (ad forms that redirect)
-  const blockForms = e => { e.preventDefault(); e.stopImmediatePropagation(); };
-  document.addEventListener('submit', blockForms, true);
-  cleanups.push(() => document.removeEventListener('submit', blockForms, true));
-
-  // 7. MutationObserver — kill any injected <a>, <form>, <meta refresh> tags outside our app
-  const observer = new MutationObserver(mutations => {
-    for (const m of mutations) {
-      for (const node of m.addedNodes) {
-        if (node.nodeType !== 1) continue;
-        // Kill meta refresh tags
-        if (node.tagName === 'META' && node.getAttribute('http-equiv')?.toLowerCase() === 'refresh') {
-          node.remove();
-        }
-        // Kill script tags injected outside our app
-        if (node.tagName === 'SCRIPT' && !node.closest('#app')) {
-          node.remove();
-        }
-      }
-    }
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  cleanups.push(() => observer.disconnect());
-
-  // 8. Aggressive location poll — 50ms interval, check if anything changed
-  const guardInterval = setInterval(() => {
-    if (window.location.hash !== savedHash) {
-      // Hash changed unexpectedly (not from our router) — allow our own hash changes
-      // but block if the origin changed
-      if (window.location.origin !== new URL(savedHref).origin) {
-        window.stop();
-        window.location.replace(savedHref);
-      }
-    }
-  }, 50);
-  cleanups.push(() => clearInterval(guardInterval));
-
-  // 9. Intercept window.location setter via visibilitychange
-  //    If page becomes hidden (redirect started), try to come back
-  const onVisChange = () => {
-    if (document.visibilityState === 'hidden') {
-      // Schedule a snap-back — if we come back to focus and URL changed, fix it
-      setTimeout(() => {
-        if (window.location.origin !== new URL(savedHref).origin) {
-          window.location.replace(savedHref);
-        }
-      }, 100);
-    }
-  };
-  document.addEventListener('visibilitychange', onVisChange);
-  cleanups.push(() => document.removeEventListener('visibilitychange', onVisChange));
-
-  // 10. Override window.location.assign and window.location.replace
-  const origAssign = window.location.assign.bind(window.location);
-  const origReplace = window.location.replace.bind(window.location);
+  // === 2. Override window.location methods ===
   try {
+    const origAssign = window.location.assign.bind(window.location);
+    const origReplace = window.location.replace.bind(window.location);
+    const blockExternal = (fn, url) => {
+      try {
+        const parsed = new URL(url, savedOrigin);
+        if (parsed.origin === savedOrigin) return fn(url);
+      } catch {}
+      // Blocked
+    };
     Object.defineProperty(window.location, 'assign', {
-      value: url => {
-        try {
-          const parsed = new URL(url, window.location.origin);
-          if (parsed.origin === window.location.origin) return origAssign(url);
-        } catch {}
-        // Block external
-      },
-      configurable: true
+      value: url => blockExternal(origAssign, url), configurable: true
     });
     Object.defineProperty(window.location, 'replace', {
-      value: url => {
-        try {
-          const parsed = new URL(url, window.location.origin);
-          if (parsed.origin === window.location.origin) return origReplace(url);
-        } catch {}
-      },
-      configurable: true
+      value: url => blockExternal(origReplace, url), configurable: true
     });
     cleanups.push(() => {
       try {
@@ -151,9 +54,163 @@ export function activateGuard() {
         Object.defineProperty(window.location, 'replace', { value: origReplace, configurable: true });
       } catch {}
     });
-  } catch {
-    // location properties may not be configurable in all browsers
+  } catch {}
+
+  // === 3. Block all page unload/navigation events ===
+  const blockUnload = e => { e.preventDefault(); e.returnValue = ''; return ''; };
+  window.addEventListener('beforeunload', blockUnload);
+  cleanups.push(() => window.removeEventListener('beforeunload', blockUnload));
+
+  // pagehide (mobile fires this)
+  const onPageHide = () => { setTimeout(() => window.location.replace(savedHref), 0); };
+  window.addEventListener('pagehide', onPageHide);
+  cleanups.push(() => window.removeEventListener('pagehide', onPageHide));
+
+  // === 4. Flood history — trap back/forward buttons ===
+  for (let i = 0; i < 30; i++) {
+    history.pushState({ guard: true, i }, '', savedHash);
   }
+  const onPopState = () => {
+    history.pushState({ guard: true }, '', savedHash);
+  };
+  window.addEventListener('popstate', onPopState);
+  cleanups.push(() => window.removeEventListener('popstate', onPopState));
+
+  // === 5. Intercept ALL click/touch/auxclick in capture phase ===
+  const blockNav = e => {
+    const a = e.target?.closest?.('a[href]');
+    if (!a) return;
+    const href = a.getAttribute('href') || '';
+    if (href.startsWith('#')) return;
+    try {
+      const url = new URL(href, savedOrigin);
+      if (url.origin === savedOrigin) return;
+    } catch {}
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  };
+  for (const evt of ['click', 'auxclick', 'touchend', 'mousedown', 'pointerdown']) {
+    document.addEventListener(evt, blockNav, true);
+    cleanups.push(() => document.removeEventListener(evt, blockNav, true));
+  }
+
+  // === 6. Block form submissions ===
+  const blockForm = e => { e.preventDefault(); e.stopImmediatePropagation(); };
+  document.addEventListener('submit', blockForm, true);
+  cleanups.push(() => document.removeEventListener('submit', blockForm, true));
+
+  // === 7. MutationObserver — nuke injected ad scripts, meta refresh, rogue iframes ===
+  const observer = new MutationObserver(mutations => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        const tag = node.tagName;
+
+        // Kill meta refresh
+        if (tag === 'META' && node.getAttribute('http-equiv')?.toLowerCase() === 'refresh') {
+          node.remove();
+          continue;
+        }
+
+        // Kill rogue scripts outside our app
+        if (tag === 'SCRIPT' && !node.closest('#app') && !node.closest('head')) {
+          const src = node.src || '';
+          if (isAdUrl(src) || !src.startsWith(savedOrigin)) {
+            node.remove();
+            continue;
+          }
+        }
+
+        // Kill rogue iframes not inside our embed container
+        if (tag === 'IFRAME' && !node.closest('#embed-box')) {
+          const src = node.src || '';
+          if (src && !src.startsWith(savedOrigin) && !src.includes('embedsports.top')) {
+            node.remove();
+            continue;
+          }
+        }
+
+        // Kill ad-domain elements
+        if (node.src && isAdUrl(node.src)) {
+          node.remove();
+          continue;
+        }
+        if (node.href && isAdUrl(node.href)) {
+          node.remove();
+          continue;
+        }
+      }
+    }
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  cleanups.push(() => observer.disconnect());
+
+  // === 8. Aggressive location poll (50ms) ===
+  const locationPoll = setInterval(() => {
+    if (window.location.origin !== savedOrigin) {
+      window.stop();
+      try { window.location.replace(savedHref); } catch {}
+    }
+  }, 50);
+  cleanups.push(() => clearInterval(locationPoll));
+
+  // === 9. Visibility change snap-back ===
+  const onVisChange = () => {
+    if (document.visibilityState === 'hidden') {
+      setTimeout(() => {
+        if (window.location.origin !== savedOrigin) {
+          try { window.location.replace(savedHref); } catch {}
+        }
+      }, 50);
+    }
+  };
+  document.addEventListener('visibilitychange', onVisChange);
+  cleanups.push(() => document.removeEventListener('visibilitychange', onVisChange));
+
+  // === 10. Nuke window.focus/blur hijacking (ad trick) ===
+  const origFocus = window.focus;
+  const origBlur = window.blur;
+  window.focus = () => {};
+  window.blur = () => {};
+  cleanups.push(() => { window.focus = origFocus; window.blur = origBlur; });
+
+  // === 11. Block target="_blank" links globally ===
+  const blockTarget = e => {
+    const a = e.target?.closest?.('a[target]');
+    if (a && a.target === '_blank') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+  };
+  document.addEventListener('click', blockTarget, true);
+  cleanups.push(() => document.removeEventListener('click', blockTarget, true));
+
+  // === 12. Nuke document.createElement for script/iframe injection ===
+  const origCreate = document.createElement.bind(document);
+  document.createElement = function(tag, options) {
+    const el = origCreate(tag, options);
+    const t = tag.toLowerCase();
+    if (t === 'script' || t === 'iframe') {
+      // Intercept src setter to block ad domains
+      const origSrcDesc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'src') ||
+                          Object.getOwnPropertyDescriptor(el.__proto__, 'src');
+      if (origSrcDesc) {
+        let _src = '';
+        Object.defineProperty(el, 'src', {
+          get: () => _src,
+          set: val => {
+            if (isAdUrl(val)) return; // Silently block
+            _src = val;
+            if (origSrcDesc.set) origSrcDesc.set.call(el, val);
+            else el.setAttribute('src', val);
+          },
+          configurable: true
+        });
+      }
+    }
+    return el;
+  };
+  cleanups.push(() => { document.createElement = origCreate; });
 
   return () => {
     for (const fn of cleanups) {

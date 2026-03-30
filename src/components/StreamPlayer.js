@@ -119,13 +119,8 @@ export function StreamPlayer(container, { slug, game, sources }) {
       hideLoading();
     });
 
-    loadTimer = setTimeout(() => {
-      if (state.settings.autoCycleStreams) {
-        cycleNext();
-      } else {
-        showError();
-      }
-    }, EMBED_LOAD_TIMEOUT);
+    // Always auto-cycle on timeout — don't wait for the user to click retry
+    loadTimer = setTimeout(() => cycleNext(), EMBED_LOAD_TIMEOUT);
 
     target.appendChild(iframeEl);
   }

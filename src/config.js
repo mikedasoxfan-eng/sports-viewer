@@ -6,7 +6,7 @@ export const SUPPORTED_LEAGUES = ['nfl', 'nba', 'mlb', 'nhl'];
 export const DEFAULT_LEAGUE = 'nfl';
 export const GAME_END_GRACE_HOURS = 6;
 export const MULTI_VIEW_MAX = 4;
-export const EMBED_LOAD_TIMEOUT = 15_000;
+export const EMBED_LOAD_TIMEOUT = 6_000;
 export const MAX_STREAMS = 5;
 
 export const LEAGUE_CONFIGS = {
