@@ -1,29 +1,33 @@
 /**
- * Stream player — iframe embed with source cycling.
- * Uses embedsports.top only (no SportSRC embeds).
+ * Stream player — source selector + stream selector, no auto-cycling.
  */
 
 import { buildEmbedUrl, createSecureIframe } from '../lib/embed.js';
-import { EMBED_LOAD_TIMEOUT } from '../config.js';
+import { MAX_STREAMS } from '../config.js';
 import { activateGuard } from '../lib/guard.js';
 
-const SOURCES = ['admin', 'charlie', 'delta', 'echo', 'golf'];
-const STREAMS_PER_SOURCE = 3;
+const SOURCE_NAMES = {
+  admin: 'Admin',
+  charlie: 'Charlie',
+  delta: 'Delta',
+  echo: 'Echo',
+  golf: 'Golf',
+  alpha: 'Alpha',
+  bravo: 'Bravo',
+  foxtrot: 'Foxtrot',
+  hotel: 'Hotel',
+  intel: 'Intel'
+};
+
+const DEFAULT_SOURCES = ['admin', 'charlie', 'delta', 'echo', 'golf'];
 
 export function StreamPlayer(container, { slug, game }) {
-  // Build queue: all source/stream combos for embedsports.top
-  const embedQueue = [];
-  if (slug) {
-    for (const src of SOURCES) {
-      for (let i = 1; i <= STREAMS_PER_SOURCE; i++) {
-        const url = buildEmbedUrl(slug, i, src);
-        if (url) embedQueue.push({ url, label: `${src} #${i}` });
-      }
-    }
-  }
+  const gameSources = game?.sources?.length
+    ? [...new Set(game.sources.map(s => s.source).filter(Boolean))]
+    : DEFAULT_SOURCES;
 
-  let currentIndex = 0;
-  let loadTimer = null;
+  let currentSource = gameSources[0] || 'admin';
+  let currentStream = 1;
   let iframeEl = null;
 
   function render() {
@@ -34,7 +38,7 @@ export function StreamPlayer(container, { slug, game }) {
           <div id="embed-loading" class="absolute inset-0 flex items-center justify-center bg-ink z-10">
             <div class="flex flex-col items-center gap-3">
               <div class="w-6 h-6 border-2 border-surface-card/30 border-t-surface-card rounded-full animate-[spin_0.8s_linear_infinite]"></div>
-              <span id="loading-label" class="font-mono text-xs text-surface-card/60 uppercase tracking-wider">Loading stream</span>
+              <span class="font-mono text-xs text-surface-card/60 uppercase tracking-wider">Loading stream</span>
             </div>
           </div>
           <div id="embed-error" class="absolute inset-0 flex items-center justify-center bg-ink z-10 hidden">
@@ -44,31 +48,45 @@ export function StreamPlayer(container, { slug, game }) {
                   <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
                 </svg>
               </div>
-              <p class="font-mono text-xs text-surface-card/60 uppercase tracking-wider">No working streams found</p>
-              <button id="retry-btn" class="px-4 py-2 rounded-full bg-white/10 text-surface-card text-sm font-medium
-                        transition-all duration-300 ease-smooth hover:bg-white/20 active:scale-[0.97]">
-                Retry
-              </button>
+              <p class="font-mono text-xs text-surface-card/60 uppercase tracking-wider">Stream unavailable</p>
+              <p class="font-sans text-xs text-surface-card/40">Try a different source or stream</p>
             </div>
           </div>
           <div id="embed-target" class="absolute inset-0"></div>
         </div>
       </div>
 
-      <div class="flex items-center justify-between mt-4
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4
                   rounded-2xl bg-surface-card shadow-card border border-ink-faint/15 p-3">
-        <div class="flex items-center gap-3">
-          <button id="prev-btn" class="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center
-                    text-ink-muted hover:text-ink transition-all duration-300 ease-smooth active:scale-[0.95]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
-          </button>
-          <span id="source-label" class="font-mono text-xs text-ink-secondary min-w-[80px] text-center">
-            ${embedQueue.length ? '1 / ' + embedQueue.length : 'No sources'}
-          </span>
-          <button id="next-btn" class="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center
-                    text-ink-muted hover:text-ink transition-all duration-300 ease-smooth active:scale-[0.95]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
+        <div class="flex items-center gap-4 flex-wrap">
+          <div class="flex items-center gap-2">
+            <label class="font-mono text-[10px] text-ink-muted uppercase tracking-widest">Source</label>
+            <select id="source-select" class="font-mono text-xs bg-surface-elevated border border-ink-faint/20
+                      rounded-lg px-2.5 py-1.5 text-ink cursor-pointer
+                      transition-all duration-300 ease-smooth hover:border-ink-faint/40
+                      focus:outline-none focus:ring-2 focus:ring-accent/30">
+              ${gameSources.map(s => `
+                <option value="${s}" ${s === currentSource ? 'selected' : ''}>
+                  ${SOURCE_NAMES[s] || s}
+                </option>
+              `).join('')}
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="font-mono text-[10px] text-ink-muted uppercase tracking-widest">Stream</label>
+            <div class="flex gap-1" id="stream-pills">
+              ${Array.from({ length: MAX_STREAMS }, (_, i) => `
+                <button class="w-8 h-8 rounded-lg font-mono text-xs font-medium
+                              transition-all duration-300 ease-smooth active:scale-[0.95]
+                              ${i + 1 === currentStream
+                                ? 'bg-ink text-surface-card shadow-bezel'
+                                : 'bg-surface-elevated text-ink-secondary hover:text-ink'}"
+                        data-stream="${i + 1}">
+                  ${i + 1}
+                </button>
+              `).join('')}
+            </div>
+          </div>
         </div>
         <button id="fullscreen-btn" class="px-3 py-1.5 rounded-lg font-mono text-[10px] uppercase tracking-widest
                   text-ink-muted bg-surface-elevated border border-ink-faint/20
@@ -83,24 +101,18 @@ export function StreamPlayer(container, { slug, game }) {
   }
 
   function loadStream() {
-    if (!embedQueue.length || currentIndex >= embedQueue.length) { showError(); return; }
-    const entry = embedQueue[currentIndex];
-    showLoading();
-    clearLoadTimer();
+    const url = buildEmbedUrl(slug, currentStream, currentSource);
+    if (!url) { showError(); return; }
 
-    const label = container.querySelector('#source-label');
-    if (label) label.textContent = `${currentIndex + 1} / ${embedQueue.length}`;
-    const ll = container.querySelector('#loading-label');
-    if (ll) ll.textContent = `Trying ${entry.label}...`;
+    showLoading();
 
     const target = container.querySelector('#embed-target');
     if (iframeEl) { iframeEl.src = 'about:blank'; iframeEl.remove(); iframeEl = null; }
 
-    iframeEl = createSecureIframe(entry.url, game?.displayTitle || 'Game Stream');
-    if (!iframeEl) { currentIndex++; loadStream(); return; }
+    iframeEl = createSecureIframe(url, game?.displayTitle || 'Game Stream');
+    if (!iframeEl) { showError(); return; }
 
-    iframeEl.addEventListener('load', () => { clearLoadTimer(); hideLoading(); });
-    loadTimer = setTimeout(() => { currentIndex++; loadStream(); }, EMBED_LOAD_TIMEOUT);
+    iframeEl.addEventListener('load', () => hideLoading());
     target.appendChild(iframeEl);
   }
 
@@ -115,16 +127,33 @@ export function StreamPlayer(container, { slug, game }) {
     container.querySelector('#embed-loading')?.classList.add('hidden');
     container.querySelector('#embed-error')?.classList.remove('hidden');
   }
-  function clearLoadTimer() { if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; } }
+
+  function updateStreamPills() {
+    container.querySelectorAll('[data-stream]').forEach(btn => {
+      const id = parseInt(btn.dataset.stream);
+      const active = id === currentStream;
+      btn.className = `w-8 h-8 rounded-lg font-mono text-xs font-medium
+        transition-all duration-300 ease-smooth active:scale-[0.95]
+        ${active ? 'bg-ink text-surface-card shadow-bezel' : 'bg-surface-elevated text-ink-secondary hover:text-ink'}`;
+    });
+  }
 
   function bindEvents() {
-    container.querySelector('#next-btn')?.addEventListener('click', () => {
-      if (currentIndex < embedQueue.length - 1) { currentIndex++; loadStream(); }
+    container.querySelector('#source-select')?.addEventListener('change', e => {
+      currentSource = e.target.value;
+      currentStream = 1;
+      updateStreamPills();
+      loadStream();
     });
-    container.querySelector('#prev-btn')?.addEventListener('click', () => {
-      if (currentIndex > 0) { currentIndex--; loadStream(); }
+
+    container.querySelector('#stream-pills')?.addEventListener('click', e => {
+      const btn = e.target.closest('[data-stream]');
+      if (!btn) return;
+      currentStream = parseInt(btn.dataset.stream);
+      updateStreamPills();
+      loadStream();
     });
-    container.querySelector('#retry-btn')?.addEventListener('click', () => { currentIndex = 0; loadStream(); });
+
     container.querySelector('#fullscreen-btn')?.addEventListener('click', () => {
       const box = container.querySelector('#embed-box');
       if (box) { document.fullscreenElement ? document.exitFullscreen() : box.requestFullscreen?.(); }
@@ -135,7 +164,6 @@ export function StreamPlayer(container, { slug, game }) {
   const deactivateGuard = activateGuard();
 
   return () => {
-    clearLoadTimer();
     deactivateGuard();
     if (iframeEl) { iframeEl.src = 'about:blank'; iframeEl.remove(); iframeEl = null; }
   };
