@@ -1,6 +1,5 @@
 /**
  * Embed URL builder and secure iframe factory.
- * Uses embedsports.top only.
  */
 
 const ALLOWED_DOMAINS = ['embedsports.top'];
@@ -49,6 +48,14 @@ export function createSecureIframe(url, title = 'Game Stream') {
   iframe.setAttribute('title', title);
   iframe.setAttribute('aria-label', title);
   iframe.setAttribute('allow', 'fullscreen; autoplay; encrypted-media; picture-in-picture');
+
+  // Sandbox: blocks top-navigation (redirects), popups (ad windows), downloads.
+  // The "Uncaught (in promise)" errors are from AD scripts dying, not the player.
+  // JW Player (bundle-jw.js) loads fine with this sandbox config.
+  iframe.setAttribute('sandbox',
+    'allow-scripts allow-same-origin allow-forms allow-presentation allow-popups-to-escape-sandbox'
+  );
+
   iframe.className = 'w-full h-full absolute inset-0';
   iframe.src = url;
   return iframe;

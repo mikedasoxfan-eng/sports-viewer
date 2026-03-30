@@ -1,5 +1,5 @@
 /**
- * Stream player — source selector + stream selector, no auto-cycling.
+ * Stream player — source/stream selectors + mobile ad click shield.
  */
 
 import { buildEmbedUrl, createSecureIframe } from '../lib/embed.js';
@@ -7,16 +7,9 @@ import { MAX_STREAMS } from '../config.js';
 import { activateGuard } from '../lib/guard.js';
 
 const SOURCE_NAMES = {
-  admin: 'Admin',
-  charlie: 'Charlie',
-  delta: 'Delta',
-  echo: 'Echo',
-  golf: 'Golf',
-  alpha: 'Alpha',
-  bravo: 'Bravo',
-  foxtrot: 'Foxtrot',
-  hotel: 'Hotel',
-  intel: 'Intel'
+  admin: 'Admin', charlie: 'Charlie', delta: 'Delta',
+  echo: 'Echo', golf: 'Golf', alpha: 'Alpha',
+  bravo: 'Bravo', foxtrot: 'Foxtrot', hotel: 'Hotel', intel: 'Intel'
 };
 
 const DEFAULT_SOURCES = ['admin', 'charlie', 'delta', 'echo', 'golf'];
@@ -52,6 +45,18 @@ export function StreamPlayer(container, { slug, game }) {
               <p class="font-sans text-xs text-surface-card/40">Try a different source or stream</p>
             </div>
           </div>
+
+          <!-- Click shield: absorbs ad overlay taps on mobile -->
+          <div id="click-shield" class="absolute inset-0 z-20 flex items-center justify-center cursor-pointer"
+               style="background: rgba(0,0,0,0.4)">
+            <div class="flex flex-col items-center gap-2">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="white" opacity="0.9">
+                <polygon points="5,3 19,12 5,21"/>
+              </svg>
+              <span class="font-mono text-xs text-white/70 uppercase tracking-wider">Tap to play</span>
+            </div>
+          </div>
+
           <div id="embed-target" class="absolute inset-0"></div>
         </div>
       </div>
@@ -112,13 +117,42 @@ export function StreamPlayer(container, { slug, game }) {
     iframeEl = createSecureIframe(url, game?.displayTitle || 'Game Stream');
     if (!iframeEl) { showError(); return; }
 
-    iframeEl.addEventListener('load', () => hideLoading());
+    iframeEl.addEventListener('load', () => {
+      hideLoading();
+      // Show the click shield after iframe loads — user taps it to dismiss,
+      // which absorbs the invisible ad overlay's first click
+      showClickShield();
+    });
     target.appendChild(iframeEl);
+  }
+
+  function showClickShield() {
+    const shield = container.querySelector('#click-shield');
+    if (shield) {
+      shield.classList.remove('hidden');
+      shield.style.background = 'rgba(0,0,0,0.4)';
+    }
+  }
+
+  function dismissClickShield() {
+    const shield = container.querySelector('#click-shield');
+    if (!shield) return;
+
+    // First tap: absorb it (this is what the ad overlay would have caught)
+    // Make shield transparent but keep it there to catch more ad clicks
+    shield.style.background = 'transparent';
+    shield.innerHTML = '';
+
+    // Keep absorbing clicks for 2 more seconds, then fully remove
+    setTimeout(() => {
+      shield.classList.add('hidden');
+    }, 2000);
   }
 
   function showLoading() {
     container.querySelector('#embed-loading')?.classList.remove('hidden');
     container.querySelector('#embed-error')?.classList.add('hidden');
+    container.querySelector('#click-shield')?.classList.add('hidden');
   }
   function hideLoading() {
     container.querySelector('#embed-loading')?.classList.add('hidden');
@@ -126,6 +160,7 @@ export function StreamPlayer(container, { slug, game }) {
   function showError() {
     container.querySelector('#embed-loading')?.classList.add('hidden');
     container.querySelector('#embed-error')?.classList.remove('hidden');
+    container.querySelector('#click-shield')?.classList.add('hidden');
   }
 
   function updateStreamPills() {
@@ -139,6 +174,13 @@ export function StreamPlayer(container, { slug, game }) {
   }
 
   function bindEvents() {
+    // Click shield — absorbs first tap
+    container.querySelector('#click-shield')?.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dismissClickShield();
+    }, true);
+
     container.querySelector('#source-select')?.addEventListener('change', e => {
       currentSource = e.target.value;
       currentStream = 1;
