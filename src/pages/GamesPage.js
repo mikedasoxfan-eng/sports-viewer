@@ -10,6 +10,23 @@ import { GameGrid } from '../components/GameGrid.js';
 import { GamesGridSkeleton } from '../components/Loader.js';
 import { enrichGame, sortEnrichedGames, applyEspnStatus } from '../lib/enrich.js';
 
+/** Dedup games by normalized team names + league */
+function dedup(games) {
+  const seen = new Map();
+  for (const g of games) {
+    const a = (g.awayTeam?.name || '').toLowerCase().trim();
+    const h = (g.homeTeam?.name || '').toLowerCase().trim();
+    if (!a && !h) continue;
+    const key = `${g.league}:${[a, h].sort().join('|')}`;
+    const existing = seen.get(key);
+    if (!existing) { seen.set(key, g); continue; }
+    // Prefer live, then more sources
+    if (g.isLive && !existing.isLive) seen.set(key, g);
+    else if ((g.sources?.length || 0) > (existing.sources?.length || 0)) seen.set(key, g);
+  }
+  return [...seen.values()];
+}
+
 export function GamesPage(container) {
   const cleanups = [];
   let isFirstLoad = true;
@@ -31,13 +48,11 @@ export function GamesPage(container) {
   const filterCleanup = FilterBar(filterMount);
   cleanups.push(filterCleanup);
 
-  // Only show skeleton on first load
   gridMount.innerHTML = GamesGridSkeleton(6);
 
   async function loadGames(force = false) {
     state.loading = true;
 
-    // Show skeleton only on first load, not on refreshes
     if (isFirstLoad) {
       gridMount.innerHTML = GamesGridSkeleton(6);
     }
@@ -45,17 +60,15 @@ export function GamesPage(container) {
     try {
       const { games } = await fetchGames(state.filter, state.league, { force });
 
-      // Enrich with team logos first, then cross-ref ESPN for live status + scores
       const enriched = games.map(g => enrichGame(g)).filter(Boolean);
       await applyEspnStatus(enriched);
-      const sorted = sortEnrichedGames(enriched);
+      const unique = dedup(enriched);
+      const sorted = sortEnrichedGames(unique);
       state.games = sorted;
       GameGrid(gridMount, sorted);
     } catch (err) {
       console.error('Failed to load games:', err);
-      if (isFirstLoad) {
-        GameGrid(gridMount, []);
-      }
+      if (isFirstLoad) GameGrid(gridMount, []);
     } finally {
       state.loading = false;
       isFirstLoad = false;

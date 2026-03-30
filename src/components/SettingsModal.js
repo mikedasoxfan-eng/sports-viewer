@@ -7,6 +7,10 @@ import { on, emit } from '../lib/events.js';
 
 let modalEl = null;
 
+function applyDarkMode(dark) {
+  document.documentElement.classList.toggle('dark', dark);
+}
+
 function createModal() {
   if (modalEl) return modalEl;
 
@@ -32,13 +36,14 @@ function createModal() {
         </div>
 
         <div class="space-y-4">
-          ${settingToggle('showScores', 'Show Scores', 'Display live scores on game cards', s.showScores)}
+          ${toggle('darkMode', 'Dark Mode', 'Switch to dark theme', s.darkMode)}
+          ${toggle('showScores', 'Show Scores', 'Display live scores on game cards', s.showScores)}
         </div>
       </div>
     `;
   }
 
-  function settingToggle(key, label, description, checked) {
+  function toggle(key, label, description, checked) {
     return `
       <div class="flex items-center justify-between gap-4">
         <div>
@@ -58,16 +63,19 @@ function createModal() {
 
   modalEl.addEventListener('click', e => {
     if (e.target.closest('[data-dismiss]')) {
-      toggle(false);
+      toggleModal(false);
       return;
     }
     const btn = e.target.closest('[data-setting]');
     if (btn) {
       const key = btn.dataset.setting;
-      state.settings = { ...state.settings, [key]: !state.settings[key] };
+      const newSettings = { ...state.settings, [key]: !state.settings[key] };
+      state.settings = newSettings;
+
+      if (key === 'darkMode') applyDarkMode(newSettings.darkMode);
+      if (key === 'showScores') emit('games:refresh');
+
       render();
-      // Re-render games list so scores show/hide immediately
-      emit('games:refresh');
     }
   });
 
@@ -75,7 +83,7 @@ function createModal() {
   return modalEl;
 }
 
-function toggle(show) {
+function toggleModal(show) {
   const el = createModal();
   if (show === undefined) show = el.classList.contains('hidden');
   el.classList.toggle('hidden', !show);
@@ -83,6 +91,9 @@ function toggle(show) {
 }
 
 export function initSettingsModal() {
-  on('settings:toggle', () => toggle());
-  on('settings:close', () => toggle(false));
+  // Apply dark mode on boot
+  applyDarkMode(state.settings.darkMode);
+
+  on('settings:toggle', () => toggleModal());
+  on('settings:close', () => toggleModal(false));
 }

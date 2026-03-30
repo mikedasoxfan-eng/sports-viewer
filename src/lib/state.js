@@ -33,7 +33,8 @@ const _state = {
 
   // Settings
   settings: {
-    showScores: true
+    showScores: true,
+    darkMode: false
   },
 
   // UI
