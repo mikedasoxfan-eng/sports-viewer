@@ -14,14 +14,66 @@ const sanitizeSlug = v => v ? String(v).toLowerCase().replace(/[^a-z0-9\-_]/g, '
 const normalizeCategory = v => v ? String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : '';
 const normalizeTeamName = v => v ? String(v).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() : '';
 
+// All 124 pro team names, built once at startup
+const PRO_TEAMS = new Set([
+  // NFL
+  'buffalo bills','miami dolphins','new england patriots','new york jets',
+  'baltimore ravens','cincinnati bengals','cleveland browns','pittsburgh steelers',
+  'houston texans','indianapolis colts','jacksonville jaguars','tennessee titans',
+  'denver broncos','kansas city chiefs','las vegas raiders','los angeles chargers',
+  'dallas cowboys','new york giants','philadelphia eagles','washington commanders',
+  'chicago bears','detroit lions','green bay packers','minnesota vikings',
+  'atlanta falcons','carolina panthers','new orleans saints','tampa bay buccaneers',
+  'arizona cardinals','los angeles rams','san francisco 49ers','seattle seahawks',
+  // NBA
+  'atlanta hawks','boston celtics','brooklyn nets','charlotte hornets',
+  'chicago bulls','cleveland cavaliers','dallas mavericks','denver nuggets',
+  'detroit pistons','golden state warriors','houston rockets','indiana pacers',
+  'los angeles clippers','los angeles lakers','memphis grizzlies','miami heat',
+  'milwaukee bucks','minnesota timberwolves','new orleans pelicans','new york knicks',
+  'oklahoma city thunder','orlando magic','philadelphia 76ers','phoenix suns',
+  'portland trail blazers','sacramento kings','san antonio spurs',
+  'toronto raptors','utah jazz','washington wizards',
+  // MLB
+  'baltimore orioles','boston red sox','new york yankees','tampa bay rays',
+  'toronto blue jays','chicago white sox','cleveland guardians','detroit tigers',
+  'kansas city royals','minnesota twins','houston astros','los angeles angels',
+  'oakland athletics','athletics','seattle mariners','texas rangers',
+  'atlanta braves','miami marlins','new york mets','philadelphia phillies',
+  'washington nationals','chicago cubs','cincinnati reds','milwaukee brewers',
+  'pittsburgh pirates','st. louis cardinals','arizona diamondbacks',
+  'colorado rockies','los angeles dodgers','san diego padres','san francisco giants',
+  // NHL
+  'anaheim ducks','boston bruins','buffalo sabres','calgary flames',
+  'carolina hurricanes','chicago blackhawks','colorado avalanche','columbus blue jackets',
+  'dallas stars','detroit red wings','edmonton oilers','florida panthers',
+  'los angeles kings','minnesota wild','montreal canadiens','nashville predators',
+  'new jersey devils','new york islanders','new york rangers','ottawa senators',
+  'philadelphia flyers','pittsburgh penguins','san jose sharks','seattle kraken',
+  'st. louis blues','tampa bay lightning','toronto maple leafs',
+  'vancouver canucks','vegas golden knights','washington capitals','winnipeg jets',
+]);
+
+function isProTeam(name) {
+  if (!name) return false;
+  return PRO_TEAMS.has(name.toLowerCase().trim());
+}
+
 function isLeagueMatch(match, league) {
   const config = LEAGUE_CONFIGS[league];
   if (!config) return false;
   const cat = (match.category || '').toLowerCase();
-  const text = `${match.title || ''} ${match.id || ''}`.toLowerCase();
+  // Must be in a matching category
   if (cat && !config.categories.some(c => cat.includes(c))) return false;
-  if (config.exclude_keywords.some(kw => text.includes(kw))) return false;
-  return [...config.brand_keywords, ...config.team_keywords].some(kw => text.includes(kw));
+  // At least one team must be a known pro team
+  const home = match.teams?.home?.name;
+  const away = match.teams?.away?.name;
+  if (home || away) {
+    return isProTeam(home) || isProTeam(away);
+  }
+  // No team objects — check title for pro team names
+  const title = (match.title || '').toLowerCase();
+  return [...config.brand_keywords, ...config.team_keywords].some(kw => title.includes(kw));
 }
 
 function identifyMatchLeague(match) {
