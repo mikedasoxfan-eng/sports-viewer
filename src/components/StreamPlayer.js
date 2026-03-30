@@ -8,13 +8,35 @@ import { state } from '../lib/state.js';
 import { activateGuard } from '../lib/guard.js';
 
 export function StreamPlayer(container, { slug, game, sources }) {
-  let currentSource = sources?.[0]?.source || game?.currentSource || 'admin';
-  let currentStream = 1;
+  // Build ordered list of embed URLs to try
+  // Prefer SportSRC embedUrls (embed.streamapi.cc) — much cleaner, less ad crap
+  const embedQueue = [];
+
+  // 1. SportSRC sources with direct embed URLs (cleanest)
+  if (sources?.length) {
+    sources.forEach(s => {
+      if (s.embedUrl) embedQueue.push({ url: s.embedUrl, label: `${s.source || 'Source'} #${s.streamNo || 1}`, source: s.source });
+    });
+  }
+
+  // 2. Fallback: build embedsports.top URLs from slug
+  if (slug) {
+    const fallbackSources = ['admin', 'charlie', 'delta', 'echo', 'golf'];
+    for (const src of fallbackSources) {
+      for (let i = 1; i <= 3; i++) {
+        const url = buildEmbedUrl(slug, i, src);
+        if (url) embedQueue.push({ url, label: `${src} #${i}`, source: src });
+      }
+    }
+  }
+
+  let currentIndex = 0;
   let loadTimer = null;
   let iframeEl = null;
 
+  const currentSource = sources?.[0]?.source || game?.currentSource || 'admin';
   const availableSources = sources?.length
-    ? sources.map(s => s.source).filter(Boolean)
+    ? [...new Set(sources.map(s => s.source).filter(Boolean))]
     : VALID_SOURCES;
 
   function render() {
@@ -92,25 +114,31 @@ export function StreamPlayer(container, { slug, game, sources }) {
   }
 
   function loadStream() {
-    const url = buildEmbedUrl(slug, currentStream, currentSource);
-    if (!url) {
+    if (currentIndex >= embedQueue.length) {
       showError();
       return;
     }
 
+    const entry = embedQueue[currentIndex];
     showLoading();
     clearLoadTimer();
 
+    // Update loading label
+    const loadingLabel = container.querySelector('#embed-loading span');
+    if (loadingLabel) loadingLabel.textContent = `Trying ${entry.label}...`;
+
     const target = container.querySelector('#embed-target');
     if (iframeEl) {
+      iframeEl.src = 'about:blank';
       iframeEl.remove();
       iframeEl = null;
     }
 
     const title = game?.displayTitle || 'Game Stream';
-    iframeEl = createSecureIframe(url, title);
+    iframeEl = createSecureIframe(entry.url, title);
     if (!iframeEl) {
-      showError();
+      currentIndex++;
+      loadStream();
       return;
     }
 
@@ -119,7 +147,7 @@ export function StreamPlayer(container, { slug, game, sources }) {
       hideLoading();
     });
 
-    // Always auto-cycle on timeout — don't wait for the user to click retry
+    // Auto-cycle on timeout
     loadTimer = setTimeout(() => cycleNext(), EMBED_LOAD_TIMEOUT);
 
     target.appendChild(iframeEl);
@@ -149,18 +177,11 @@ export function StreamPlayer(container, { slug, game, sources }) {
   }
 
   function cycleNext() {
-    const srcIdx = availableSources.indexOf(currentSource);
-    if (currentStream < MAX_STREAMS) {
-      currentStream++;
-    } else if (srcIdx < availableSources.length - 1) {
-      currentSource = availableSources[srcIdx + 1];
-      currentStream = 1;
-    } else {
+    currentIndex++;
+    if (currentIndex >= embedQueue.length) {
       showError();
       return;
     }
-    updateStreamPills();
-    updateSourceSelect();
     loadStream();
   }
 

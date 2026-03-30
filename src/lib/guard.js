@@ -56,22 +56,27 @@ export function activateGuard() {
     });
   } catch {}
 
-  // === 3. Block all page unload/navigation events ===
-  const blockUnload = e => { e.preventDefault(); e.returnValue = ''; return ''; };
-  window.addEventListener('beforeunload', blockUnload);
-  cleanups.push(() => window.removeEventListener('beforeunload', blockUnload));
-
-  // pagehide (mobile fires this)
-  const onPageHide = () => { setTimeout(() => window.location.replace(savedHref), 0); };
+  // === 3. Block external page unload, allow in-app navigation ===
+  // pagehide (mobile) — snap back if navigating externally
+  const onPageHide = e => {
+    if (e.persisted === false) {
+      setTimeout(() => {
+        if (window.location.origin !== savedOrigin) {
+          window.location.replace(savedHref);
+        }
+      }, 0);
+    }
+  };
   window.addEventListener('pagehide', onPageHide);
   cleanups.push(() => window.removeEventListener('pagehide', onPageHide));
 
-  // === 4. Flood history — trap back/forward buttons ===
-  for (let i = 0; i < 30; i++) {
-    history.pushState({ guard: true, i }, '', savedHash);
-  }
+  // === 4. Allow back button for in-app navigation, block external ===
   const onPopState = () => {
-    history.pushState({ guard: true }, '', savedHash);
+    // If the browser navigated away from our origin, snap back
+    if (window.location.origin !== savedOrigin) {
+      history.pushState(null, '', savedHash);
+    }
+    // Otherwise allow it — back button goes to #/ (games page) naturally
   };
   window.addEventListener('popstate', onPopState);
   cleanups.push(() => window.removeEventListener('popstate', onPopState));
