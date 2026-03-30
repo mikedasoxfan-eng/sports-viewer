@@ -1,11 +1,11 @@
 {
   "name": "Sports Viewer",
   "short_name": "Sports",
-  "description": "Watch live sports streams - NFL, NBA, MLB, NHL",
+  "description": "Live sports streams — NFL, NBA, MLB, NHL",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "background_color": "#FAFAFA",
+  "theme_color": "#FAFAFA",
   "orientation": "any",
   "icons": [
     {
@@ -21,17 +21,5 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["sports", "entertainment"],
-  "shortcuts": [
-    {
-      "name": "Multi-View",
-      "url": "/#/multi",
-      "description": "Watch multiple games"
-    },
-    {
-      "name": "Standings",
-      "url": "/#/standings",
-      "description": "View league standings"
-    }
-  ]
+  "categories": ["sports", "entertainment"]
 }

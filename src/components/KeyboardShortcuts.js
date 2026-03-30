@@ -1,0 +1,109 @@
+/**
+ * Keyboard shortcuts handler.
+ */
+
+import { router } from '../lib/router.js';
+import { emit } from '../lib/events.js';
+
+const SHORTCUTS = [
+  { key: '/', label: 'Games', description: 'Go to games list' },
+  { key: ',', label: 'Settings', description: 'Open settings' },
+  { key: 'r', label: 'Refresh', description: 'Refresh games' },
+  { key: 'f', label: 'Fullscreen', description: 'Toggle fullscreen (watch page)' },
+  { key: ']', label: 'Next', description: 'Next stream' },
+  { key: '[', label: 'Prev', description: 'Previous stream' },
+  { key: '?', label: 'Help', description: 'Show shortcuts' },
+];
+
+let overlayEl = null;
+
+function createOverlay() {
+  if (overlayEl) return overlayEl;
+  overlayEl = document.createElement('div');
+  overlayEl.id = 'shortcuts-overlay';
+  overlayEl.className = 'fixed inset-0 z-[60] hidden';
+  overlayEl.innerHTML = `
+    <div class="absolute inset-0 bg-ink/40 backdrop-blur-sm" data-dismiss></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
+                w-full max-w-md bg-surface-card rounded-3xl shadow-diffused border border-ink-faint/15
+                p-8 space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="font-mono text-lg font-semibold text-ink tracking-tight">Keyboard Shortcuts</h2>
+        <button data-dismiss class="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center
+                  text-ink-muted hover:text-ink transition-colors duration-300 ease-smooth">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="space-y-2">
+        ${SHORTCUTS.map(s => `
+          <div class="flex items-center justify-between py-2">
+            <span class="font-sans text-sm text-ink-secondary">${s.description}</span>
+            <kbd class="font-mono text-xs bg-surface-elevated border border-ink-faint/20
+                        rounded-lg px-2.5 py-1 text-ink-secondary">${s.key}</kbd>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlayEl);
+
+  overlayEl.addEventListener('click', e => {
+    if (e.target.closest('[data-dismiss]')) toggleOverlay(false);
+  });
+
+  return overlayEl;
+}
+
+function toggleOverlay(show) {
+  const el = createOverlay();
+  el.classList.toggle('hidden', !show);
+}
+
+export function initKeyboardShortcuts() {
+  document.addEventListener('keydown', e => {
+    const isInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+
+    if (e.key === 'Escape') {
+      if (overlayEl && !overlayEl.classList.contains('hidden')) {
+        toggleOverlay(false);
+        return;
+      }
+      emit('settings:close');
+      if (document.fullscreenElement) document.exitFullscreen();
+      return;
+    }
+
+    if (isInput) return;
+
+    if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+      e.preventDefault();
+      toggleOverlay(!overlayEl || overlayEl.classList.contains('hidden'));
+      return;
+    }
+
+    if (e.key === '/') { e.preventDefault(); router.navigate('/'); return; }
+    if (e.key === ',') { e.preventDefault(); emit('settings:toggle'); return; }
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); emit('games:refresh'); return; }
+
+    if (e.key === 'f' || e.key === 'F') {
+      const box = document.querySelector('#embed-box');
+      if (box) {
+        e.preventDefault();
+        document.fullscreenElement ? document.exitFullscreen() : box.requestFullscreen?.();
+      }
+      return;
+    }
+
+    if (e.key === ']') {
+      const active = document.querySelector('[data-stream].bg-ink');
+      const next = active?.nextElementSibling;
+      if (next?.dataset?.stream) { e.preventDefault(); next.click(); }
+      return;
+    }
+    if (e.key === '[') {
+      const active = document.querySelector('[data-stream].bg-ink');
+      const prev = active?.previousElementSibling;
+      if (prev?.dataset?.stream) { e.preventDefault(); prev.click(); }
+    }
+  });
+}

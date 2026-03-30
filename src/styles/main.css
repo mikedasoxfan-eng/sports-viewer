@@ -1,0 +1,52 @@
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./base.css";
+@import "./animations.css";
+@import "./utilities.css";
+
+@theme {
+  /* Typography */
+  --font-mono: "JetBrains Mono", "Berkeley Mono", "SF Mono", "Consolas", monospace;
+  --font-sans: "Geist", "Satoshi", -apple-system, "Segoe UI", sans-serif;
+
+  /* Surface colors */
+  --color-surface: #FAFAFA;
+  --color-surface-card: #FFFFFF;
+  --color-surface-elevated: #F5F5F5;
+
+  /* Ink (text) colors */
+  --color-ink: #18181B;
+  --color-ink-secondary: #71717A;
+  --color-ink-muted: #A1A1AA;
+  --color-ink-faint: #D4D4D8;
+
+  /* Accent */
+  --color-accent: #B45309;
+  --color-accent-soft: #FEF3C7;
+
+  /* Status */
+  --color-live: #DC2626;
+  --color-live-soft: #FEE2E2;
+  --color-ended: #71717A;
+
+  /* Radii */
+  --radius-4xl: 2rem;
+  --radius-3xl: 1.5rem;
+  --radius-2xl: 1rem;
+
+  /* Shadows */
+  --shadow-bezel: 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-diffused: 0 20px 40px -15px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.03);
+  --shadow-card-hover: 0 8px 24px -8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --shadow-inner-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  --shadow-navbar: 0 4px 24px -4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.03);
+
+  /* Easing */
+  --ease-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Animations */
+  --animate-shimmer: shimmer 2s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.6s var(--ease-smooth) forwards;
+  --animate-pulse-live: pulse-live 2s ease-in-out infinite;
+}

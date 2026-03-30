@@ -1,14 +1,23 @@
 {
   "name": "sports-viewer",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
-    "start": "node backend/node/server.js",
-    "dev": "node backend/node/server.js"
+    "dev": "concurrently \"vite\" \"node server/index.js\"",
+    "dev:client": "vite",
+    "dev:server": "node --watch server/index.js",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node server/index.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "morgan": "^1.10.0",
-    "node-fetch": "^2.7.0"
+    "express": "^4.21.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "concurrently": "^9.0.0"
   }
 }

@@ -1,12 +1,5 @@
 node_modules/
-backend/python/data/
-backend/python/__pycache__/
-*.pyc
+dist/
+.env
 *.log
-opencode/
-opencode
-git-history.txt
-docs
 .claude
-.sisyphus
-reference
