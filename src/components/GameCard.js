@@ -18,6 +18,18 @@ function formatScore(team) {
   return `<span class="font-mono text-base font-semibold text-ink tabular-nums ml-auto shrink-0">${s}</span>`;
 }
 
+function relativeTime(timestamp) {
+  if (!timestamp) return '';
+  const diff = timestamp - Date.now();
+  const absDiff = Math.abs(diff);
+  const mins = Math.floor(absDiff / 60000);
+  const hrs = Math.floor(absDiff / 3600000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return diff > 0 ? `in ${mins}m` : `${mins}m ago`;
+  if (hrs < 24) return diff > 0 ? `in ${hrs}h` : `${hrs}h ago`;
+  return '';
+}
+
 function statusBadge(game) {
   if (game.isLive) {
     const detail = game.statusDetail || 'Live';
@@ -29,7 +41,9 @@ function statusBadge(game) {
   if (game.isEnded) {
     return `<span class="font-mono text-[11px] font-medium tracking-wider text-ink-muted">${game.statusDetail || 'Final'}</span>`;
   }
-  return `<span class="font-mono text-[11px] font-medium text-ink-muted">${game.formattedTime || 'TBD'}</span>`;
+  const rel = relativeTime(game.timestamp);
+  const timeStr = rel || game.formattedTime || 'TBD';
+  return `<span class="font-mono text-[11px] font-medium text-ink-muted">${timeStr}</span>`;
 }
 
 export function renderGameCard(game, index = 0) {

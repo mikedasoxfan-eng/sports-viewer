@@ -35,15 +35,27 @@ export function WatchPage(container, params, query) {
 
     container.innerHTML = `
       <div class="pt-6 space-y-4 opacity-0 animate-fade-up">
-        <a href="#/" class="inline-flex items-center gap-2 font-mono text-[11px] uppercase
-                          tracking-widest text-ink-muted hover:text-ink
-                          transition-colors duration-300 ease-smooth no-underline group">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-               class="transition-transform duration-300 ease-smooth group-hover:-translate-x-0.5">
-            <path d="m15 18-6-6 6-6"/>
-          </svg>
-          Back
-        </a>
+        <div class="flex items-center justify-between">
+          <a href="#/" class="inline-flex items-center gap-2 font-mono text-[11px] uppercase
+                            tracking-widest text-ink-muted hover:text-ink
+                            transition-colors duration-300 ease-smooth no-underline group">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                 class="transition-transform duration-300 ease-smooth group-hover:-translate-x-0.5">
+              <path d="m15 18-6-6 6-6"/>
+            </svg>
+            Back
+          </a>
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[10px] text-ink-muted uppercase tracking-widest">${gameLeague.toUpperCase()}</span>
+            <button id="share-btn" class="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center
+                      text-ink-muted hover:text-ink transition-colors duration-300 ease-smooth"
+                    title="Share">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
+            </button>
+          </div>
+        </div>
 
         <!-- Live score bar -->
         <div id="score-bar" class="rounded-2xl bg-surface-card shadow-card border border-ink-faint/15 px-5 py-3">
@@ -67,6 +79,18 @@ export function WatchPage(container, params, query) {
         <div id="player-mount"></div>
       </div>
     `;
+
+    // Share button
+    container.querySelector('#share-btn')?.addEventListener('click', async () => {
+      const shareData = { title, url: window.location.href };
+      try {
+        if (navigator.share) await navigator.share(shareData);
+        else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(window.location.href);
+          // Could show toast here
+        }
+      } catch {}
+    });
 
     // Stream player
     const playerCleanup = StreamPlayer(
