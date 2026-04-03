@@ -3,16 +3,19 @@
  */
 
 import { router } from '../lib/router.js';
+import { state } from '../lib/state.js';
 import { emit } from '../lib/events.js';
 
 const SHORTCUTS = [
-  { key: '/', label: 'Games', description: 'Go to games list' },
-  { key: ',', label: 'Settings', description: 'Open settings' },
-  { key: 'r', label: 'Refresh', description: 'Refresh games' },
-  { key: 'f', label: 'Fullscreen', description: 'Toggle fullscreen (watch page)' },
-  { key: ']', label: 'Next', description: 'Next stream' },
-  { key: '[', label: 'Prev', description: 'Previous stream' },
-  { key: '?', label: 'Help', description: 'Show shortcuts' },
+  { key: '/', description: 'Go to games' },
+  { key: 's', description: 'Go to standings' },
+  { key: 'd', description: 'Toggle dark mode' },
+  { key: ',', description: 'Open settings' },
+  { key: 'r', description: 'Refresh games' },
+  { key: 'f', description: 'Fullscreen (watch page)' },
+  { key: ']', description: 'Next stream' },
+  { key: '[', description: 'Previous stream' },
+  { key: '?', description: 'Show shortcuts' },
 ];
 
 let overlayEl = null;
@@ -34,7 +37,7 @@ function createOverlay() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>
-      <div class="space-y-2">
+      <div class="space-y-1">
         ${SHORTCUTS.map(s => `
           <div class="flex items-center justify-between py-2">
             <span class="font-sans text-sm text-ink-secondary">${s.description}</span>
@@ -46,11 +49,9 @@ function createOverlay() {
     </div>
   `;
   document.body.appendChild(overlayEl);
-
   overlayEl.addEventListener('click', e => {
     if (e.target.closest('[data-dismiss]')) toggleOverlay(false);
   });
-
   return overlayEl;
 }
 
@@ -61,13 +62,10 @@ function toggleOverlay(show) {
 
 export function initKeyboardShortcuts() {
   document.addEventListener('keydown', e => {
-    const isInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+    const isInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'SELECT';
 
     if (e.key === 'Escape') {
-      if (overlayEl && !overlayEl.classList.contains('hidden')) {
-        toggleOverlay(false);
-        return;
-      }
+      if (overlayEl && !overlayEl.classList.contains('hidden')) { toggleOverlay(false); return; }
       emit('settings:close');
       if (document.fullscreenElement) document.exitFullscreen();
       return;
@@ -82,8 +80,17 @@ export function initKeyboardShortcuts() {
     }
 
     if (e.key === '/') { e.preventDefault(); router.navigate('/'); return; }
+    if (e.key === 's' || e.key === 'S') { e.preventDefault(); router.navigate('/standings'); return; }
     if (e.key === ',') { e.preventDefault(); emit('settings:toggle'); return; }
     if (e.key === 'r' || e.key === 'R') { e.preventDefault(); emit('games:refresh'); return; }
+
+    if (e.key === 'd' || e.key === 'D') {
+      e.preventDefault();
+      const newSettings = { ...state.settings, darkMode: !state.settings.darkMode };
+      state.settings = newSettings;
+      document.documentElement.classList.toggle('dark', newSettings.darkMode);
+      return;
+    }
 
     if (e.key === 'f' || e.key === 'F') {
       const box = document.querySelector('#embed-box');

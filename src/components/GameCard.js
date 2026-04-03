@@ -1,13 +1,11 @@
 /**
- * Single game card — double-bezel design with staggered entry.
+ * Single game card with favorite toggle.
  */
 
 import { state } from '../lib/state.js';
 
 function teamLogo(team) {
-  if (!team?.logo) {
-    return `<div class="w-8 h-8 rounded-lg bg-surface-elevated shrink-0"></div>`;
-  }
+  if (!team?.logo) return `<div class="w-8 h-8 rounded-lg bg-surface-elevated shrink-0"></div>`;
   return `<div class="w-8 h-8 rounded-lg bg-surface-elevated shrink-0 flex items-center justify-center overflow-hidden p-1">
     <img src="${team.logo}" alt="" class="w-full h-full object-contain" loading="lazy" onerror="this.style.display='none'" />
   </div>`;
@@ -29,8 +27,7 @@ function statusBadge(game) {
     </span>`;
   }
   if (game.isEnded) {
-    const detail = game.statusDetail || 'Final';
-    return `<span class="font-mono text-[11px] font-medium tracking-wider text-ink-muted">${detail}</span>`;
+    return `<span class="font-mono text-[11px] font-medium tracking-wider text-ink-muted">${game.statusDetail || 'Final'}</span>`;
   }
   return `<span class="font-mono text-[11px] font-medium text-ink-muted">${game.formattedTime || 'TBD'}</span>`;
 }
@@ -42,6 +39,7 @@ export function renderGameCard(game, index = 0) {
   const leagueQuery = `?league=${league}`;
   const awayName = away.name || away.displayName || game.title?.split(/\s+vs\.?\s+/i)?.[0] || 'TBD';
   const homeName = home.name || home.displayName || game.title?.split(/\s+vs\.?\s+/i)?.[1] || 'TBD';
+  const isFav = state.favorites.includes(game.slug);
 
   return `
     <article class="game-card group relative rounded-3xl bg-surface-card
@@ -57,12 +55,21 @@ export function renderGameCard(game, index = 0) {
              data-league="${league}"
              data-live="${game.isLive || false}">
 
-      <div class="m-1.5 rounded-[1.25rem] bg-surface/40 p-5
+      <div class="m-1.5 rounded-[1.25rem] bg-surface/40 p-4 sm:p-5
                   shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
 
         <div class="flex items-center justify-between mb-3">
           ${statusBadge(game)}
-          <span class="font-mono text-[10px] text-ink-muted/60 uppercase tracking-widest">${league.toUpperCase()}</span>
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[10px] text-ink-muted/60 uppercase tracking-widest">${league.toUpperCase()}</span>
+            <button data-fav="${game.slug}" class="w-6 h-6 flex items-center justify-center rounded-full
+                      transition-all duration-300 ease-smooth hover:scale-110 active:scale-95
+                      ${isFav ? 'text-accent' : 'text-ink-faint hover:text-ink-muted'}" title="${isFav ? 'Unfavorite' : 'Favorite'}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div class="space-y-2">

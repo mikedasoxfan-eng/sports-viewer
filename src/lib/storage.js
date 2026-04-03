@@ -8,7 +8,8 @@ import { state, subscribe, batch } from './state.js';
 const KEYS = {
   settings: 'sv_settings',
   filter: 'sv_filter',
-  league: 'sv_league'
+  league: 'sv_league',
+  favorites: 'sv_favorites'
 };
 
 function safeGet(key) {
@@ -39,6 +40,9 @@ export function initStorage() {
       state.settings = { ...state.settings, ...settings };
     }
 
+    const favorites = safeGet(KEYS.favorites);
+    if (Array.isArray(favorites)) state.favorites = favorites;
+
     const filter = safeGet(KEYS.filter);
     if (filter) state.filter = filter;
 
@@ -50,4 +54,5 @@ export function initStorage() {
   subscribe('settings', val => safeSet(KEYS.settings, val));
   subscribe('filter', val => safeSet(KEYS.filter, val));
   subscribe('league', val => safeSet(KEYS.league, val));
+  subscribe('favorites', val => safeSet(KEYS.favorites, val));
 }

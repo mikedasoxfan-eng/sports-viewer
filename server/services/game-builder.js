@@ -71,9 +71,10 @@ function isLeagueMatch(match, league) {
   if (home || away) {
     return isProTeam(home) || isProTeam(away);
   }
-  // No team objects — check title for pro team names
+  // No team objects — try to find two pro teams in the title
   const title = (match.title || '').toLowerCase();
-  return [...config.brand_keywords, ...config.team_keywords].some(kw => title.includes(kw));
+  const matched = [...PRO_TEAMS].filter(t => title.includes(t));
+  return matched.length >= 2;
 }
 
 function identifyMatchLeague(match) {

@@ -37,6 +37,12 @@ const _state = {
     darkMode: false
   },
 
+  // Favorites (array of slug strings)
+  favorites: [],
+
+  // Search query
+  search: '',
+
   // UI
   toasts: []
 };

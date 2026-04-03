@@ -9,6 +9,7 @@ import { initStorage } from './lib/storage.js';
 import { Shell } from './components/Shell.js';
 import { GamesPage } from './pages/GamesPage.js';
 import { WatchPage } from './pages/WatchPage.js';
+import { StandingsPage } from './pages/StandingsPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { initKeyboardShortcuts } from './components/KeyboardShortcuts.js';
 import { initSettingsModal } from './components/SettingsModal.js';
@@ -22,6 +23,7 @@ function bootApp() {
 
   router.register('/', GamesPage);
   router.register('/watch/:slug', WatchPage);
+  router.register('/standings', StandingsPage);
   router.register('404', NotFoundPage);
 
   router.afterEach((current) => {
@@ -42,21 +44,17 @@ async function init() {
   const auth = await checkAuth();
 
   if (auth.required && !auth.authenticated) {
-    AuthGate(document.getElementById('app'), () => {
-      // On successful login, boot the app
-      bootApp();
-    });
+    AuthGate(document.getElementById('app'), () => bootApp());
   } else {
     bootApp();
   }
 }
 
-// Unregister old service workers that cache stale assets
+// Unregister old service workers
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => {
     regs.forEach(reg => reg.unregister());
   });
-  // Clear all caches
   if ('caches' in window) {
     caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
   }
