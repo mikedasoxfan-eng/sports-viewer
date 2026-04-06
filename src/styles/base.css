@@ -70,4 +70,22 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--color-ink-muted); }
 
   img { max-width: 100%; height: auto; }
+
+  /* Theater mode */
+  body.theater-mode #navbar-mount {
+    opacity: 0;
+    pointer-events: none;
+    height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease, height 0.3s ease;
+  }
+  body.theater-mode .theater-hide {
+    opacity: 0;
+    pointer-events: none;
+    height: 0;
+    overflow: hidden;
+  }
+  body.theater-mode footer {
+    display: none;
+  }
 }

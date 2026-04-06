@@ -4,6 +4,7 @@
  */
 
 import { Navbar } from './Navbar.js';
+import { ScrollTop } from './ScrollTop.js';
 
 export function Shell(root) {
   root.innerHTML = `
@@ -21,5 +22,6 @@ export function Shell(root) {
   `;
 
   Navbar(root.querySelector('#navbar-mount'));
+  ScrollTop();
   return root.querySelector('#router-outlet');
 }

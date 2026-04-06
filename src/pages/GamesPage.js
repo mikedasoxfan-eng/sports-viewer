@@ -1,5 +1,5 @@
 /**
- * Games list page — search, filters, favorites, game grid.
+ * Games list page — search, filters, favorites, game grid, auto-refresh countdown.
  */
 
 import { state } from '../lib/state.js';
@@ -11,6 +11,8 @@ import { GameGrid } from '../components/GameGrid.js';
 import { GamesGridSkeleton } from '../components/Loader.js';
 import { enrichGame, sortEnrichedGames, applyEspnStatus } from '../lib/enrich.js';
 import { showToast } from '../components/Toast.js';
+
+const REFRESH_INTERVAL = 60; // seconds
 
 function dedup(games) {
   const seen = new Map();
@@ -54,14 +56,28 @@ export function GamesPage(container) {
   const cleanups = [];
   let isFirstLoad = true;
   let lastUpdated = null;
-  let allGames = []; // unfiltered for counts
+  let allGames = [];
+  let countdown = REFRESH_INTERVAL;
+  let countdownTimer = null;
 
   container.innerHTML = `
     <div class="pt-6">
       <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
         <div>
           <h1 class="font-mono text-2xl sm:text-3xl font-bold tracking-tighter text-ink mb-1">Games</h1>
-          <p id="status-line" class="font-sans text-sm text-ink-secondary">Live and upcoming matchups</p>
+          <div class="flex items-center gap-3">
+            <p id="status-line" class="font-sans text-sm text-ink-secondary">Live and upcoming matchups</p>
+            <span id="countdown-badge" class="hidden font-mono text-[10px] text-ink-muted/60 bg-surface-elevated
+                    px-2 py-0.5 rounded-full tabular-nums whitespace-nowrap select-none
+                    border border-ink-faint/10">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   class="inline -mt-px mr-0.5">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6"/>
+                <path d="M2.5 11.5a10 10 0 0 1 18.8-4.3M21.5 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+              <span id="countdown-text"></span>
+            </span>
+          </div>
         </div>
         <div class="relative w-full sm:w-64">
           <input id="search-input" type="text" placeholder="Search teams..."
@@ -83,6 +99,8 @@ export function GamesPage(container) {
   const gridMount = container.querySelector('#games-grid');
   const searchInput = container.querySelector('#search-input');
   const statusLine = container.querySelector('#status-line');
+  const countdownBadge = container.querySelector('#countdown-badge');
+  const countdownText = container.querySelector('#countdown-text');
 
   const filterCleanup = FilterBar(filterMount);
   cleanups.push(filterCleanup);
@@ -101,11 +119,36 @@ export function GamesPage(container) {
     statusLine.textContent = parts.join(' \u00b7 ');
   }
 
+  function updateCountdown() {
+    if (!countdownBadge || !countdownText) return;
+    if (countdown <= 0) return;
+    countdownBadge.classList.remove('hidden');
+    countdownText.textContent = `${countdown}s`;
+  }
+
+  function startCountdown() {
+    countdown = REFRESH_INTERVAL;
+    updateCountdown();
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      countdown--;
+      if (countdown <= 0) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        if (countdownBadge) countdownBadge.classList.add('hidden');
+        loadGames();
+      } else {
+        updateCountdown();
+      }
+    }, 1000);
+  }
+
   function renderGames() {
     const searched = filterBySearch(allGames, state.search);
     const sorted = sortWithFavorites(searched);
     state.games = sorted;
-    GameGrid(gridMount, sorted);
+    const favSet = new Set(state.favorites);
+    GameGrid(gridMount, sorted, favSet);
   }
 
   async function loadGames(force = false) {
@@ -118,6 +161,10 @@ export function GamesPage(container) {
       await applyEspnStatus(enriched);
       allGames = dedup(enriched);
       lastUpdated = Date.now();
+
+      // Update live count for navbar badge
+      state.liveCount = allGames.filter(g => g.isLive).length;
+
       updateStatusLine();
       renderGames();
     } catch (err) {
@@ -126,6 +173,7 @@ export function GamesPage(container) {
     } finally {
       state.loading = false;
       isFirstLoad = false;
+      startCountdown();
     }
   }
 
@@ -162,8 +210,9 @@ export function GamesPage(container) {
 
   cleanups.push(on('games:refresh', () => loadGames(true)));
 
-  const interval = setInterval(() => loadGames(), 60_000);
-  cleanups.push(() => clearInterval(interval));
+  cleanups.push(() => {
+    if (countdownTimer) clearInterval(countdownTimer);
+  });
 
   return () => cleanups.forEach(fn => fn());
 }

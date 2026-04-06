@@ -1,5 +1,5 @@
 /**
- * Stream player — source/stream selectors + mobile ad click shield.
+ * Stream player — source/stream selectors + mobile ad click shield + theater toggle.
  */
 
 import { buildEmbedUrl, createSecureIframe } from '../lib/embed.js';
@@ -14,7 +14,7 @@ const SOURCE_NAMES = {
 
 const DEFAULT_SOURCES = ['admin', 'charlie', 'delta', 'echo', 'golf'];
 
-export function StreamPlayer(container, { slug, game }) {
+export function StreamPlayer(container, { slug, game, onTheaterToggle }) {
   const gameSources = game?.sources?.length
     ? [...new Set(game.sources.map(s => s.source).filter(Boolean))]
     : DEFAULT_SOURCES;
@@ -93,12 +93,24 @@ export function StreamPlayer(container, { slug, game }) {
             </div>
           </div>
         </div>
-        <button id="fullscreen-btn" class="px-3 py-1.5 rounded-lg font-mono text-[10px] uppercase tracking-widest
-                  text-ink-muted bg-surface-elevated border border-ink-faint/20
-                  transition-all duration-300 ease-smooth hover:text-ink hover:border-ink-faint/40
-                  active:scale-[0.97]">
-          Fullscreen
-        </button>
+        <div class="flex items-center gap-1.5">
+          <button id="theater-btn" class="px-3 py-1.5 rounded-lg font-mono text-[10px] uppercase tracking-widest
+                    text-ink-muted bg-surface-elevated border border-ink-faint/20
+                    transition-all duration-300 ease-smooth hover:text-ink hover:border-ink-faint/40
+                    active:scale-[0.97] inline-flex items-center gap-1.5"
+                  title="Theater mode">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="6" width="20" height="12" rx="2"/>
+            </svg>
+            Theater
+          </button>
+          <button id="fullscreen-btn" class="px-3 py-1.5 rounded-lg font-mono text-[10px] uppercase tracking-widest
+                    text-ink-muted bg-surface-elevated border border-ink-faint/20
+                    transition-all duration-300 ease-smooth hover:text-ink hover:border-ink-faint/40
+                    active:scale-[0.97]">
+            Fullscreen
+          </button>
+        </div>
       </div>
     `;
     bindEvents();
@@ -119,8 +131,6 @@ export function StreamPlayer(container, { slug, game }) {
 
     iframeEl.addEventListener('load', () => {
       hideLoading();
-      // Show the click shield after iframe loads — user taps it to dismiss,
-      // which absorbs the invisible ad overlay's first click
       showClickShield();
     });
     target.appendChild(iframeEl);
@@ -137,13 +147,8 @@ export function StreamPlayer(container, { slug, game }) {
   function dismissClickShield() {
     const shield = container.querySelector('#click-shield');
     if (!shield) return;
-
-    // First tap: absorb it (this is what the ad overlay would have caught)
-    // Make shield transparent but keep it there to catch more ad clicks
     shield.style.background = 'transparent';
     shield.innerHTML = '';
-
-    // Keep absorbing clicks for 2 more seconds, then fully remove
     setTimeout(() => {
       shield.classList.add('hidden');
     }, 2000);
@@ -174,7 +179,6 @@ export function StreamPlayer(container, { slug, game }) {
   }
 
   function bindEvents() {
-    // Click shield — absorbs first tap
     container.querySelector('#click-shield')?.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
@@ -199,6 +203,10 @@ export function StreamPlayer(container, { slug, game }) {
     container.querySelector('#fullscreen-btn')?.addEventListener('click', () => {
       const box = container.querySelector('#embed-box');
       if (box) { document.fullscreenElement ? document.exitFullscreen() : box.requestFullscreen?.(); }
+    });
+
+    container.querySelector('#theater-btn')?.addEventListener('click', () => {
+      if (onTheaterToggle) onTheaterToggle();
     });
   }
 

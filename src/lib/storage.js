@@ -37,6 +37,10 @@ export function initStorage() {
   batch(() => {
     const settings = safeGet(KEYS.settings);
     if (settings && typeof settings === 'object') {
+      // Migrate boolean darkMode to tri-state string
+      if (typeof settings.darkMode === 'boolean') {
+        settings.darkMode = settings.darkMode ? 'dark' : 'light';
+      }
       state.settings = { ...state.settings, ...settings };
     }
 

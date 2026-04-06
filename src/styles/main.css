@@ -49,4 +49,6 @@
   --animate-shimmer: shimmer 2s ease-in-out infinite;
   --animate-fade-up: fade-up 0.6s var(--ease-smooth) forwards;
   --animate-pulse-live: pulse-live 2s ease-in-out infinite;
+  --animate-slide-up-in: slide-up-in 0.3s var(--ease-smooth) forwards;
+  --animate-badge-pop: badge-pop 0.3s var(--ease-smooth) forwards;
 }

@@ -116,14 +116,16 @@ export async function applyEspnStatus(games) {
         game.statusDetail = detail || '';
       }
 
-      // Update scores
+      // Update scores + records
       const comps = event?.competitions?.[0]?.competitors || [];
       const ac = comps.find(c => c?.homeAway === 'away') || comps[0];
       const hc = comps.find(c => c?.homeAway === 'home') || comps[1];
       const as = extractScore(ac);
       const hs = extractScore(hc);
-      if (as != null) game.awayTeam = { ...game.awayTeam, score: as };
-      if (hs != null) game.homeTeam = { ...game.homeTeam, score: hs };
+      const ar = (ac?.records?.find(r => r.type === 'total') || ac?.records?.find(r => r.type === 'ytd') || ac?.records?.[0])?.summary || null;
+      const hr = (hc?.records?.find(r => r.type === 'total') || hc?.records?.find(r => r.type === 'ytd') || hc?.records?.[0])?.summary || null;
+      if (as != null || ar) game.awayTeam = { ...game.awayTeam, ...(as != null && { score: as }), ...(ar && { record: ar }) };
+      if (hs != null || hr) game.homeTeam = { ...game.homeTeam, ...(hs != null && { score: hs }), ...(hr && { record: hr }) };
     });
   }));
 }

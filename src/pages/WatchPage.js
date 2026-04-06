@@ -1,5 +1,5 @@
 /**
- * Watch page — live score bar + stream player.
+ * Watch page — live score bar + stream player + theater mode.
  */
 
 import { fetchGameBySlug, fetchScoreboard, buildScoreIndex, extractScore, normalizeTeamName } from '../lib/api.js';
@@ -8,12 +8,33 @@ import { StreamPlayer } from '../components/StreamPlayer.js';
 import { WatchPageSkeleton } from '../components/Loader.js';
 import { state } from '../lib/state.js';
 
+const TheaterIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/></svg>`;
+const ExitTheaterIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M2 15h20"/></svg>`;
+
 export function WatchPage(container, params, query) {
   const slug = params.slug;
   const league = query.league || 'all';
   const cleanups = [];
+  let theaterActive = false;
 
   container.innerHTML = `<div class="pt-6">${WatchPageSkeleton()}</div>`;
+
+  function toggleTheater() {
+    theaterActive = !theaterActive;
+    document.body.classList.toggle('theater-mode', theaterActive);
+
+    const btn = container.querySelector('#theater-btn');
+    if (btn) {
+      btn.innerHTML = theaterActive ? ExitTheaterIcon : TheaterIcon;
+      btn.title = theaterActive ? 'Exit theater' : 'Theater mode';
+    }
+
+    // Toggle visibility of back link and non-essential chrome
+    container.querySelectorAll('.theater-hide').forEach(el => {
+      el.style.opacity = theaterActive ? '0' : '';
+      el.style.pointerEvents = theaterActive ? 'none' : '';
+    });
+  }
 
   async function load() {
     const raw = await fetchGameBySlug(slug, league);
@@ -35,7 +56,7 @@ export function WatchPage(container, params, query) {
 
     container.innerHTML = `
       <div class="pt-6 space-y-4 opacity-0 animate-fade-up">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between theater-hide">
           <a href="#/" class="inline-flex items-center gap-2 font-mono text-[11px] uppercase
                             tracking-widest text-ink-muted hover:text-ink
                             transition-colors duration-300 ease-smooth no-underline group">
@@ -87,7 +108,6 @@ export function WatchPage(container, params, query) {
         if (navigator.share) await navigator.share(shareData);
         else if (navigator.clipboard) {
           await navigator.clipboard.writeText(window.location.href);
-          // Could show toast here
         }
       } catch {}
     });
@@ -95,7 +115,7 @@ export function WatchPage(container, params, query) {
     // Stream player
     const playerCleanup = StreamPlayer(
       container.querySelector('#player-mount'),
-      { slug, game }
+      { slug, game, onTheaterToggle: toggleTheater }
     );
     cleanups.push(playerCleanup);
 
@@ -145,6 +165,7 @@ export function WatchPage(container, params, query) {
 
   return () => {
     document.title = 'Sports Viewer';
+    document.body.classList.remove('theater-mode');
     cleanups.forEach(fn => fn());
   };
 }

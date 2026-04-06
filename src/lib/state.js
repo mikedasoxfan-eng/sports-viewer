@@ -34,8 +34,11 @@ const _state = {
   // Settings
   settings: {
     showScores: true,
-    darkMode: false
+    darkMode: 'system' // 'system' | 'light' | 'dark'
   },
+
+  // Live game count (for navbar badge)
+  liveCount: 0,
 
   // Favorites (array of slug strings)
   favorites: [],

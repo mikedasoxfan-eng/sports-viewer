@@ -10,6 +10,10 @@ import { Shell } from './components/Shell.js';
 import { GamesPage } from './pages/GamesPage.js';
 import { WatchPage } from './pages/WatchPage.js';
 import { StandingsPage } from './pages/StandingsPage.js';
+import { ScoresPage } from './pages/ScoresPage.js';
+import { StatsPage } from './pages/StatsPage.js';
+import { SchedulePage } from './pages/SchedulePage.js';
+import { PlayerPage } from './pages/PlayerPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { initKeyboardShortcuts } from './components/KeyboardShortcuts.js';
 import { initSettingsModal } from './components/SettingsModal.js';
@@ -23,7 +27,11 @@ function bootApp() {
 
   router.register('/', GamesPage);
   router.register('/watch/:slug', WatchPage);
+  router.register('/scores', ScoresPage);
   router.register('/standings', StandingsPage);
+  router.register('/stats', StatsPage);
+  router.register('/schedule', SchedulePage);
+  router.register('/player/:id', PlayerPage);
   router.register('404', NotFoundPage);
 
   router.afterEach((current) => {

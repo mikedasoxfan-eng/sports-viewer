@@ -11,6 +11,12 @@ function teamLogo(team) {
   </div>`;
 }
 
+function formatRecord(team) {
+  const r = team?.record;
+  if (!r) return '';
+  return `<span class="font-mono text-[10px] text-ink-muted/70 tabular-nums">(${r})</span>`;
+}
+
 function formatScore(team) {
   if (!state.settings.showScores) return '';
   const s = team?.score;
@@ -22,11 +28,17 @@ function relativeTime(timestamp) {
   if (!timestamp) return '';
   const diff = timestamp - Date.now();
   const absDiff = Math.abs(diff);
-  const mins = Math.floor(absDiff / 60000);
-  const hrs = Math.floor(absDiff / 3600000);
-  if (mins < 1) return 'now';
-  if (mins < 60) return diff > 0 ? `in ${mins}m` : `${mins}m ago`;
-  if (hrs < 24) return diff > 0 ? `in ${hrs}h` : `${hrs}h ago`;
+  const totalMins = Math.floor(absDiff / 60000);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (totalMins < 1) return 'now';
+  const prefix = diff > 0 ? 'in ' : '';
+  const suffix = diff > 0 ? '' : ' ago';
+  if (hrs === 0) return `${prefix}${mins}m${suffix}`;
+  if (hrs < 24) return mins > 0 ? `${prefix}${hrs}h ${mins}m${suffix}` : `${prefix}${hrs}h${suffix}`;
+  const days = Math.floor(hrs / 24);
+  const remHrs = hrs % 24;
+  if (days < 7) return remHrs > 0 ? `${prefix}${days}d ${remHrs}h${suffix}` : `${prefix}${days}d${suffix}`;
   return '';
 }
 
@@ -90,11 +102,13 @@ export function renderGameCard(game, index = 0) {
           <div class="flex items-center gap-3 min-w-0">
             ${teamLogo(away)}
             <span class="font-sans font-medium text-ink text-[15px] truncate">${awayName}</span>
+            ${formatRecord(away)}
             ${formatScore(away)}
           </div>
           <div class="flex items-center gap-3 min-w-0">
             ${teamLogo(home)}
             <span class="font-sans font-medium text-ink text-[15px] truncate">${homeName}</span>
+            ${formatRecord(home)}
             ${formatScore(home)}
           </div>
         </div>

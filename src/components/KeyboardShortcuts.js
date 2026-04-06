@@ -8,11 +8,14 @@ import { emit } from '../lib/events.js';
 
 const SHORTCUTS = [
   { key: '/', description: 'Go to games' },
+  { key: 'c', description: 'Go to scores' },
   { key: 's', description: 'Go to standings' },
-  { key: 'd', description: 'Toggle dark mode' },
+  { key: 'h', description: 'Go to schedule' },
+  { key: 'd', description: 'Cycle theme (system/light/dark)' },
   { key: ',', description: 'Open settings' },
   { key: 'r', description: 'Refresh games' },
   { key: 'f', description: 'Fullscreen (watch page)' },
+  { key: 't', description: 'Theater mode (watch page)' },
   { key: ']', description: 'Next stream' },
   { key: '[', description: 'Previous stream' },
   { key: '?', description: 'Show shortcuts' },
@@ -67,6 +70,10 @@ export function initKeyboardShortcuts() {
     if (e.key === 'Escape') {
       if (overlayEl && !overlayEl.classList.contains('hidden')) { toggleOverlay(false); return; }
       emit('settings:close');
+      if (document.body.classList.contains('theater-mode')) {
+        document.querySelector('#theater-btn')?.click();
+        return;
+      }
       if (document.fullscreenElement) document.exitFullscreen();
       return;
     }
@@ -80,15 +87,22 @@ export function initKeyboardShortcuts() {
     }
 
     if (e.key === '/') { e.preventDefault(); router.navigate('/'); return; }
+    if (e.key === 'c' || e.key === 'C') { e.preventDefault(); router.navigate('/scores'); return; }
     if (e.key === 's' || e.key === 'S') { e.preventDefault(); router.navigate('/standings'); return; }
+    if (e.key === 'h' || e.key === 'H') { e.preventDefault(); router.navigate('/schedule'); return; }
     if (e.key === ',') { e.preventDefault(); emit('settings:toggle'); return; }
     if (e.key === 'r' || e.key === 'R') { e.preventDefault(); emit('games:refresh'); return; }
 
     if (e.key === 'd' || e.key === 'D') {
       e.preventDefault();
-      const newSettings = { ...state.settings, darkMode: !state.settings.darkMode };
+      const cycle = { system: 'light', light: 'dark', dark: 'system' };
+      const current = state.settings.darkMode || 'system';
+      const next = cycle[current] || 'system';
+      const newSettings = { ...state.settings, darkMode: next };
       state.settings = newSettings;
-      document.documentElement.classList.toggle('dark', newSettings.darkMode);
+      // Resolve actual theme
+      const isDark = next === 'dark' || (next === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.toggle('dark', isDark);
       return;
     }
 
@@ -98,6 +112,12 @@ export function initKeyboardShortcuts() {
         e.preventDefault();
         document.fullscreenElement ? document.exitFullscreen() : box.requestFullscreen?.();
       }
+      return;
+    }
+
+    if (e.key === 't' || e.key === 'T') {
+      const theaterBtn = document.querySelector('#theater-btn');
+      if (theaterBtn) { e.preventDefault(); theaterBtn.click(); }
       return;
     }
 
