@@ -3,45 +3,103 @@
  * NHL: api-web.nhle.com, MLB: statsapi.mlb.com, NBA/NFL: ESPN.
  */
 
-/* ── Helpers ── */
-function hs(url, size = 200) {
+/* ── Shared helpers ── */
+function espnHs(url, size = 200) {
   if (!url) return '';
-  if (url.includes('espncdn.com')) {
-    const path = url.replace(/^https?:\/\/a\.espncdn\.com/, '');
-    return `https://a.espncdn.com/combiner/i?img=${path}&w=${size}&h=${size}`;
-  }
+  if (url.includes('espncdn.com')) return `https://a.espncdn.com/combiner/i?img=${url.replace(/^https?:\/\/a\.espncdn\.com/, '')}&w=${size}&h=${size}`;
   return url;
 }
-
-function section(title) {
-  return `<div class="font-mono text-[11px] text-ink-muted uppercase tracking-widest mt-8 mb-3 flex items-center gap-2">${title}<span class="flex-1 h-px bg-ink-faint/15"></span></div>`;
+function espnTeamLogo(sport, teamId, size = 32) {
+  if (!teamId) return '';
+  return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sport}/500/${teamId}.png&h=${size}&w=${size}`;
 }
-
-function bio(label, value) {
-  if (!value) return '';
-  return `<div class="flex items-start gap-3 py-1.5"><span class="font-mono text-[10px] text-ink-muted uppercase tracking-widest w-20 shrink-0 pt-0.5">${label}</span><span class="font-sans text-sm text-ink">${value}</span></div>`;
+function teamNameFromSlug(slug) {
+  if (!slug || slug.includes('Total')) return '';
+  const parts = slug.split('-');
+  return parts[parts.length - 1].charAt(0).toUpperCase() + parts[parts.length - 1].slice(1);
 }
-
-function numCard(label, value) {
-  return `<div class="text-center p-2.5 rounded-xl bg-surface-elevated/60 border border-ink-faint/8">
-    <div class="font-mono text-lg font-bold text-ink tabular-nums leading-none">${value ?? '-'}</div>
-    <div class="font-mono text-[9px] text-ink-muted uppercase tracking-widest mt-1.5">${label}</div>
+function logoImg(src, cls = 'w-5 h-5') {
+  if (!src) return '';
+  return `<img src="${src}" class="${cls} object-contain shrink-0" loading="lazy" onerror="this.style.display='none'" />`;
+}
+function sec(title) {
+  return `<div class="font-mono text-[10px] text-ink-muted uppercase tracking-[0.1em] mt-8 mb-3 flex items-center gap-2">${title}<span class="flex-1 h-px bg-ink-faint/15"></span></div>`;
+}
+function stat(label, value, rank) {
+  return `<div class="text-center">
+    <div class="font-mono text-xl sm:text-2xl font-bold text-ink tabular-nums leading-none">${value ?? '-'}</div>
+    <div class="font-mono text-[9px] text-ink-muted uppercase tracking-widest mt-1">${label}</div>
+    ${rank ? `<div class="font-mono text-[9px] text-accent font-semibold mt-0.5">${rank}</div>` : ''}
   </div>`;
 }
-
+function th(label, opts = '') {
+  return `<th class="text-center px-2 py-2 whitespace-nowrap ${opts}">${label}</th>`;
+}
+function td(value, opts = '') {
+  return `<td class="text-center px-2 py-2 whitespace-nowrap ${opts}">${value ?? '-'}</td>`;
+}
 function skeleton() {
-  return `<div class="pt-6 space-y-6 opacity-0 animate-fade-up">
-    <div class="flex items-center gap-5"><div class="skeleton w-24 h-24 rounded-2xl"></div><div class="space-y-2 flex-1"><div class="skeleton h-6 w-48"></div><div class="skeleton h-4 w-32"></div></div></div>
-    <div class="grid grid-cols-4 gap-2">${Array(8).fill('<div class="skeleton h-16 rounded-xl"></div>').join('')}</div>
-    <div class="skeleton h-64 rounded-2xl"></div>
+  return `<div class="max-w-3xl mx-auto pt-6"><div class="rounded-3xl bg-surface-card border border-ink-faint/15 overflow-hidden">
+    <div class="p-6 sm:p-8 space-y-6 opacity-0 animate-fade-up">
+      <div class="flex gap-5"><div class="skeleton w-24 h-24 rounded-2xl shrink-0"></div><div class="flex-1 space-y-3 pt-2"><div class="skeleton h-7 w-48"></div><div class="skeleton h-4 w-36"></div><div class="skeleton h-3 w-64"></div></div></div>
+      <div class="grid grid-cols-4 sm:grid-cols-6 gap-4">${'<div class="skeleton h-14 rounded-xl"></div>'.repeat(6)}</div>
+      <div class="skeleton h-72 rounded-2xl"></div>
+    </div>
+  </div></div>`;
+}
+function backLink() {
+  return `<a href="#/stats" class="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-ink-muted hover:text-ink transition-colors no-underline group">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="transition-transform duration-300 group-hover:-translate-x-0.5"><path d="m15 18-6-6 6-6"/></svg>Stats
+  </a>`;
+}
+
+function header(hsUrl, name, teamLogo, teamName, details) {
+  return `<div class="flex gap-5 mb-6">
+    ${hsUrl ? `<img src="${hsUrl}" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover bg-surface-elevated shadow-card shrink-0" onerror="this.style.display='none'" />` : `<div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-surface-elevated shrink-0"></div>`}
+    <div class="min-w-0 flex-1 pt-1">
+      <h1 class="font-sans text-2xl sm:text-3xl font-bold text-ink leading-tight">${name}</h1>
+      <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+        ${logoImg(teamLogo, 'w-5 h-5')}
+        <span class="font-sans text-sm text-ink-secondary font-medium">${teamName}</span>
+      </div>
+      <div class="font-mono text-[11px] text-ink-muted mt-1.5 leading-relaxed">${details}</div>
+    </div>
   </div>`;
 }
 
-/* ── NHL ── */
+function bioGrid(items) {
+  const filtered = items.filter(x => x[1]);
+  if (!filtered.length) return '';
+  return `<div class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 py-4 border-y border-ink-faint/8">
+    ${filtered.map(([label, value]) => `<div>
+      <div class="font-mono text-[9px] text-ink-muted uppercase tracking-widest">${label}</div>
+      <div class="font-sans text-sm text-ink">${value}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function awardBadges(awards) {
+  if (!awards.length) return '';
+  return `${sec('Awards')}<div class="flex flex-wrap gap-1.5">${awards.map(a =>
+    `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent-soft/60 border border-accent/10 font-mono text-[10px] text-accent font-medium">${a.name}${a.count > 1 ? ' <span class="opacity-60">x' + a.count + '</span>' : ''}</span>`
+  ).join('')}</div>`;
+}
+
+/* ── NHL team name → abbreviation map ── */
+const NHL_ABBR = {"Colorado Avalanche":"COL","Carolina Hurricanes":"CAR","Tampa Bay Lightning":"TBL","Dallas Stars":"DAL","Buffalo Sabres":"BUF","Montréal Canadiens":"MTL","Minnesota Wild":"MIN","Pittsburgh Penguins":"PIT","Boston Bruins":"BOS","Ottawa Senators":"OTT","Philadelphia Flyers":"PHI","New York Islanders":"NYI","Detroit Red Wings":"DET","Columbus Blue Jackets":"CBJ","Edmonton Oilers":"EDM","Anaheim Ducks":"ANA","Washington Capitals":"WSH","Utah Mammoth":"UTA","Vegas Golden Knights":"VGK","New Jersey Devils":"NJD","Los Angeles Kings":"LAK","Nashville Predators":"NSH","San Jose Sharks":"SJS","Winnipeg Jets":"WPG","St. Louis Blues":"STL","Toronto Maple Leafs":"TOR","Florida Panthers":"FLA","Seattle Kraken":"SEA","New York Rangers":"NYR","Calgary Flames":"CGY","Chicago Blackhawks":"CHI","Vancouver Canucks":"VAN","Arizona Coyotes":"ARI","Atlanta Thrashers":"ATL","Hartford Whalers":"HFD","Quebec Nordiques":"QUE","Mighty Ducks of Anaheim":"ANA","Phoenix Coyotes":"ARI"};
+function nhlTeamLogo(teamName) {
+  const abbr = NHL_ABBR[teamName] || '';
+  if (!abbr) return '';
+  return `https://assets.nhle.com/logos/nhl/svg/${abbr}_light.svg`;
+}
+
+/* ══════════════════════════════════════════════
+   NHL
+   ══════════════════════════════════════════════ */
 async function loadNhl(name) {
   const sr = await fetch(`https://search.d3.nhle.com/api/v1/search/player?culture=en-us&limit=1&q=${encodeURIComponent(name)}&active=true`);
   const sd = await sr.json();
-  if (!sd?.[0]?.playerId) throw new Error('Player not found');
+  if (!sd?.[0]?.playerId) throw new Error('Not found');
   const res = await fetch(`https://api-web.nhle.com/v1/player/${sd[0].playerId}/landing`);
   if (!res.ok) throw new Error('Failed');
   return res.json();
@@ -55,146 +113,113 @@ function renderNhl(p) {
   const career = p.careerTotals?.regularSeason || {};
   const seasons = (p.seasonTotals || []).filter(s => s.leagueAbbrev === 'NHL' && s.gameTypeId === 2);
   const last5 = p.last5Games || [];
-  const awards = p.awards || [];
+  const rawAwards = p.awards || [];
+  const awards = rawAwards.map(a => ({ name: a.trophy?.default || 'Award', count: a.seasons?.length || 1 }));
+
+  const details = [
+    `#${p.sweaterNumber || ''}`,
+    p.position || '',
+    `${p.heightInCentimeters || ''}cm / ${p.heightInInches || ''}"`,
+    `${p.weightInPounds || ''} lbs`,
+    age ? `Age ${age}` : '',
+  ].filter(Boolean).join('  /  ');
 
   return `
-    <!-- Hero -->
-    ${p.heroImage ? `<div class="relative h-52 sm:h-64 overflow-hidden rounded-t-3xl bg-ink/80">
-      <img src="${p.heroImage}" class="w-full h-full object-cover object-top" onerror="this.parentElement.style.display='none'" />
-      <div class="absolute inset-0 bg-gradient-to-t from-surface-card via-surface-card/20 to-transparent"></div>
+    ${p.heroImage ? `<div class="relative h-44 sm:h-56 overflow-hidden bg-ink/80">
+      <img src="${p.heroImage}" class="w-full h-full object-cover object-top" onerror="this.parentElement.remove()" />
+      <div class="absolute inset-0 bg-gradient-to-t from-surface-card via-surface-card/30 to-transparent"></div>
     </div>` : ''}
 
-    <div class="px-5 sm:px-8 pb-8 ${p.heroImage ? '-mt-16 relative' : 'pt-8'}">
-      <!-- Header -->
-      <div class="flex items-end gap-5 mb-6">
-        <img src="${p.headshot || ''}" class="w-24 h-24 rounded-2xl object-cover bg-surface-elevated border-2 border-surface-card shadow-diffused" onerror="this.style.display='none'" />
-        <div class="min-w-0 flex-1 pb-1">
-          <h1 class="font-sans text-2xl sm:text-3xl font-bold text-ink leading-tight truncate">${name}</h1>
-          <div class="flex items-center gap-2 mt-1.5">
-            ${p.teamLogo ? `<img src="${p.teamLogo}" class="w-5 h-5 object-contain" />` : ''}
-            <span class="font-mono text-xs text-ink-secondary">${p.fullTeamName?.default || ''}</span>
-            <span class="font-mono text-xs text-ink-muted">#${p.sweaterNumber || ''} / ${p.position || ''}</span>
-          </div>
-        </div>
+    <div class="p-5 sm:p-8 ${p.heroImage ? '-mt-16 relative' : ''}">
+      ${header(p.headshot, name, p.teamLogo, p.fullTeamName?.default || '', details)}
+
+      ${bioGrid([
+        ['Born', p.birthDate || ''],
+        ['Birthplace', `${p.birthCity?.default || ''}${p.birthStateProvince?.default ? ', ' + p.birthStateProvince.default : ''}`],
+        ['Nationality', p.birthCountry || ''],
+        ['Shoots', p.shootsCatches === 'L' ? 'Left' : p.shootsCatches === 'R' ? 'Right' : ''],
+        ['Draft', draft ? `${draft.year} R${draft.round} P${draft.pickInRound} (#${draft.overallPick}) ${draft.teamAbbrev}` : 'Undrafted'],
+        ['HOF', p.inHHOF ? 'Inducted' : ''],
+      ])}
+
+      ${sec('2025-26 Season')}
+      <div class="grid grid-cols-4 sm:grid-cols-8 gap-4 sm:gap-6">
+        ${stat('GP', cs.gamesPlayed)}${stat('G', cs.goals)}${stat('A', cs.assists)}${stat('PTS', cs.points)}
+        ${stat('+/-', cs.plusMinus)}${stat('PIM', cs.pim)}${stat('PPG', cs.powerPlayGoals)}${stat('S', cs.shots)}
       </div>
 
-      <!-- Bio -->
-      <div class="rounded-2xl bg-surface-elevated/30 border border-ink-faint/8 p-4 divide-y divide-ink-faint/8">
-        ${bio('Height', `${p.heightInCentimeters || ''}cm (${p.heightInInches || ''}")`)}
-        ${bio('Weight', `${p.weightInPounds || ''} lbs (${p.weightInKilograms || ''} kg)`)}
-        ${bio('Age', `${age}${p.birthDate ? '  --  Born ' + p.birthDate : ''}`)}
-        ${bio('Born in', `${p.birthCity?.default || ''}${p.birthStateProvince?.default ? ', ' + p.birthStateProvince.default : ''}, ${p.birthCountry || ''}`)}
-        ${bio('Shoots', p.shootsCatches === 'L' ? 'Left' : p.shootsCatches === 'R' ? 'Right' : '')}
-        ${draft ? bio('Draft', `${draft.year} Round ${draft.round}, Pick ${draft.pickInRound} (#${draft.overallPick} overall) -- ${draft.teamAbbrev}`) : ''}
-        ${p.inHHOF ? bio('Honors', 'Hockey Hall of Fame') : ''}
-        ${p.inTop100AllTime ? bio('Honors', 'NHL Top 100 All-Time') : ''}
+      ${sec('Career')}
+      <div class="grid grid-cols-4 sm:grid-cols-8 gap-4 sm:gap-6">
+        ${stat('GP', career.gamesPlayed)}${stat('G', career.goals)}${stat('A', career.assists)}
+        ${stat('PTS', (career.goals || 0) + (career.assists || 0))}${stat('+/-', career.plusMinus)}
+        ${stat('GWG', career.gameWinningGoals)}
+        ${stat('S%', career.shootingPctg != null ? (career.shootingPctg * 100).toFixed(1) : '-')}
+        ${stat('TOI/G', career.avgToi || '-')}
       </div>
 
-      <!-- Current Season -->
-      ${section('2025-26 Season')}
-      <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
-        ${numCard('GP', cs.gamesPlayed)}${numCard('G', cs.goals)}${numCard('A', cs.assists)}${numCard('PTS', cs.points)}
-        ${numCard('+/-', cs.plusMinus)}${numCard('PIM', cs.pim)}${numCard('PPG', cs.powerPlayGoals)}${numCard('S', cs.shots)}
-      </div>
-
-      <!-- Career -->
-      ${section('Career Totals')}
-      <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
-        ${numCard('GP', career.gamesPlayed)}${numCard('G', career.goals)}${numCard('A', career.assists)}
-        ${numCard('PTS', (career.goals || 0) + (career.assists || 0))}${numCard('+/-', career.plusMinus)}
-        ${numCard('GWG', career.gameWinningGoals)}${numCard('S%', career.shootingPctg != null ? (career.shootingPctg * 100).toFixed(1) : '-')}
-        ${numCard('TOI/G', career.avgToi || '-')}
-      </div>
-
-      <!-- Season-by-Season -->
       ${seasons.length > 0 ? `
-        ${section('Season History')}
+        ${sec('Season History')}
         <div class="rounded-2xl bg-surface-card border border-ink-faint/15 overflow-x-auto">
-          <table class="w-full text-sm font-mono tabular-nums min-w-[600px]">
-            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/30 text-[10px] text-ink-muted uppercase tracking-widest">
-              <th class="text-left px-3 py-2">Season</th><th class="text-left px-2 py-2">Team</th>
-              <th class="text-center px-2 py-2">GP</th><th class="text-center px-2 py-2">G</th>
-              <th class="text-center px-2 py-2">A</th><th class="text-center px-2 py-2 font-semibold text-accent">PTS</th>
-              <th class="text-center px-2 py-2">+/-</th><th class="text-center px-2 py-2">PIM</th>
-              <th class="text-center px-2 py-2 hidden sm:table-cell">PPG</th>
-              <th class="text-center px-2 py-2 hidden sm:table-cell">S</th>
-              <th class="text-center px-2 py-2 hidden sm:table-cell">S%</th>
-              <th class="text-center px-2 py-2 hidden md:table-cell">TOI/G</th>
+          <table class="w-full text-[12px] font-mono tabular-nums">
+            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/40 text-[9px] text-ink-muted uppercase tracking-widest">
+              <th class="text-left px-3 py-2 sticky left-0 bg-surface-elevated/40">Season</th>
+              <th class="text-left px-2 py-2">Team</th>
+              ${th('GP')}${th('G')}${th('A')}${th('PTS', 'font-semibold text-accent')}${th('+/-')}${th('PIM')}
+              ${th('PPG', 'hidden sm:table-cell')}${th('S', 'hidden sm:table-cell')}
+              ${th('S%', 'hidden sm:table-cell')}${th('TOI/G', 'hidden md:table-cell')}
             </tr></thead>
             <tbody>
               ${seasons.map(s => {
-                const yr = String(s.season);
-                const display = yr.slice(0, 4) + '-' + yr.slice(4);
+                const yr = String(s.season); const display = yr.slice(0, 4) + '-' + yr.slice(6);
+                const tName = s.teamName?.default || '';
+                const tAbbr = NHL_ABBR[tName] || '';
+                const tLogo = nhlTeamLogo(tName);
                 return `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
-                  <td class="px-3 py-2 text-ink-secondary text-xs">${display}</td>
-                  <td class="px-2 py-2 text-ink-secondary text-xs">${s.teamName?.default || ''}</td>
-                  <td class="text-center px-2 py-2">${s.gamesPlayed ?? '-'}</td>
-                  <td class="text-center px-2 py-2">${s.goals ?? '-'}</td>
-                  <td class="text-center px-2 py-2">${s.assists ?? '-'}</td>
-                  <td class="text-center px-2 py-2 font-semibold text-ink">${(s.goals || 0) + (s.assists || 0)}</td>
-                  <td class="text-center px-2 py-2">${s.plusMinus ?? '-'}</td>
-                  <td class="text-center px-2 py-2">${s.pim ?? '-'}</td>
-                  <td class="text-center px-2 py-2 hidden sm:table-cell">${s.powerPlayGoals ?? '-'}</td>
-                  <td class="text-center px-2 py-2 hidden sm:table-cell">${s.shots ?? '-'}</td>
-                  <td class="text-center px-2 py-2 hidden sm:table-cell">${s.shootingPctg != null ? (s.shootingPctg * 100).toFixed(1) : '-'}</td>
-                  <td class="text-center px-2 py-2 hidden md:table-cell">${s.avgToi || '-'}</td>
-                </tr>`;
-              }).join('')}
+                  <td class="px-3 py-2 text-ink-muted text-[11px] sticky left-0 bg-surface-card whitespace-nowrap">${display}</td>
+                  <td class="px-2 py-2 whitespace-nowrap"><div class="flex items-center gap-1.5">${logoImg(tLogo, 'w-4 h-4')}<span class="text-ink-secondary text-[11px]">${tAbbr}</span></div></td>
+                  ${td(s.gamesPlayed)}${td(s.goals)}${td(s.assists)}${td((s.goals||0)+(s.assists||0), 'font-semibold text-ink')}
+                  ${td(s.plusMinus)}${td(s.pim)}
+                  ${td(s.powerPlayGoals, 'hidden sm:table-cell')}${td(s.shots, 'hidden sm:table-cell')}
+                  ${td(s.shootingPctg != null ? (s.shootingPctg*100).toFixed(1) : '-', 'hidden sm:table-cell')}
+                  ${td(s.avgToi || '-', 'hidden md:table-cell')}
+                </tr>`; }).join('')}
             </tbody>
           </table>
         </div>
       ` : ''}
 
-      <!-- Game Log -->
       ${last5.length > 0 ? `
-        ${section('Recent Games')}
+        ${sec('Recent Games')}
         <div class="rounded-2xl bg-surface-card border border-ink-faint/15 overflow-x-auto">
-          <table class="w-full text-sm font-mono tabular-nums min-w-[500px]">
-            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/30 text-[10px] text-ink-muted uppercase tracking-widest">
+          <table class="w-full text-[12px] font-mono tabular-nums">
+            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/40 text-[9px] text-ink-muted uppercase tracking-widest">
               <th class="text-left px-3 py-2">Date</th><th class="text-center px-2 py-2">Opp</th>
-              <th class="text-center px-2 py-2">G</th><th class="text-center px-2 py-2">A</th>
-              <th class="text-center px-2 py-2 font-semibold text-accent">PTS</th><th class="text-center px-2 py-2">+/-</th>
-              <th class="text-center px-2 py-2">S</th><th class="text-center px-2 py-2">TOI</th>
+              ${th('G')}${th('A')}${th('PTS', 'font-semibold text-accent')}${th('+/-')}${th('S')}${th('TOI')}
             </tr></thead>
-            <tbody>
-              ${last5.map(g => `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
-                <td class="px-3 py-2 text-ink-muted text-xs">${g.gameDate || ''}</td>
-                <td class="text-center px-2 py-2 text-ink-secondary text-xs">${g.homeRoadFlag === 'H' ? 'vs' : '@'} ${g.opponentAbbrev || ''}</td>
-                <td class="text-center px-2 py-2">${g.goals ?? 0}</td>
-                <td class="text-center px-2 py-2">${g.assists ?? 0}</td>
-                <td class="text-center px-2 py-2 font-semibold text-ink">${g.points ?? 0}</td>
-                <td class="text-center px-2 py-2">${g.plusMinus ?? 0}</td>
-                <td class="text-center px-2 py-2">${g.shots ?? 0}</td>
-                <td class="text-center px-2 py-2">${g.toi || ''}</td>
-              </tr>`).join('')}
-            </tbody>
+            <tbody>${last5.map(g => `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
+              <td class="px-3 py-2 text-ink-muted whitespace-nowrap">${g.gameDate || ''}</td>
+              <td class="text-center px-2 py-2 text-ink-secondary whitespace-nowrap">${g.homeRoadFlag === 'H' ? 'vs' : '@'} ${g.opponentAbbrev || ''}</td>
+              ${td(g.goals)}${td(g.assists)}${td(g.points, 'font-semibold text-ink')}${td(g.plusMinus)}${td(g.shots)}${td(g.toi)}
+            </tr>`).join('')}</tbody>
           </table>
         </div>
       ` : ''}
 
-      <!-- Awards -->
-      ${awards.length > 0 ? `
-        ${section('Awards')}
-        <div class="space-y-1.5">
-          ${awards.map(a => `<div class="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-elevated/30">
-            <span class="font-sans text-sm text-ink">${a.trophy?.default || 'Award'}</span>
-            <span class="font-mono text-[10px] text-ink-muted">${(a.seasons || []).map(s => String(s.seasonId).slice(0, 4) + '-' + String(s.seasonId).slice(4)).join(', ')}</span>
-          </div>`).join('')}
-        </div>
-      ` : ''}
+      ${awardBadges(awards)}
     </div>
   `;
 }
 
-/* ── MLB ── */
+/* ══════════════════════════════════════════════
+   MLB
+   ══════════════════════════════════════════════ */
 async function loadMlb(id) {
-  const [personRes, logRes] = await Promise.all([
+  const [pRes, logRes] = await Promise.all([
     fetch(`https://statsapi.mlb.com/api/v1/people/${id}?hydrate=stats(group=[hitting,pitching,fielding],type=[yearByYear,career]),awards,currentTeam`),
     fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=gameLog&season=2026&group=hitting`),
   ]);
-  const person = (await personRes.json()).people?.[0];
-  const logData = await logRes.json();
-  if (person) person._gameLog = logData.stats?.[0]?.splits || [];
+  const person = (await pRes.json()).people?.[0];
+  if (person) person._gameLog = (await logRes.json()).stats?.[0]?.splits || [];
   return person;
 }
 
@@ -202,349 +227,262 @@ function renderMlb(p) {
   const hsUrl = `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_200,q_auto:best/v1/people/${p.id}/headshot/67/current`;
   const teamLogo = p.currentTeam?.id ? `https://www.mlbstatic.com/team-logos/${p.currentTeam.id}.svg` : '';
 
-  const getStats = (group, type) => p.stats?.find(s => s.group?.displayName === group && s.type?.displayName === type);
-  const hitYby = getStats('hitting', 'yearByYear')?.splits || [];
-  const pitchYby = getStats('pitching', 'yearByYear')?.splits || [];
-  const hitCareer = getStats('hitting', 'career')?.splits?.[0]?.stat;
-  const pitchCareer = getStats('pitching', 'career')?.splits?.[0]?.stat;
+  const getStat = (group, type) => p.stats?.find(s => s.group?.displayName === group && s.type?.displayName === type);
+  const hitYby = getStat('hitting', 'yearByYear')?.splits || [];
+  const pitchYby = getStat('pitching', 'yearByYear')?.splits || [];
+  const hitCareer = getStat('hitting', 'career')?.splits?.[0]?.stat;
+  const pitchCareer = getStat('pitching', 'career')?.splits?.[0]?.stat;
   const gameLog = p._gameLog || [];
-  const awards = p.awards || [];
-  const awardMap = {};
-  awards.forEach(a => { const n = a.name || 'Award'; if (!awardMap[n]) awardMap[n] = []; awardMap[n].push(a.season); });
 
-  const isHitter = hitYby.length > 0 || !!hitCareer;
-  const isPitcher = pitchYby.length > 0 || !!pitchCareer;
+  const rawAwards = p.awards || [];
+  const awardMap = {};
+  rawAwards.forEach(a => { const n = a.name || 'Award'; awardMap[n] = (awardMap[n] || 0) + 1; });
+  const awards = Object.entries(awardMap).map(([name, count]) => ({ name, count }));
+
+  const details = [
+    `#${p.primaryNumber || ''}`,
+    p.primaryPosition?.name || '',
+    p.height || '',
+    p.weight ? p.weight + ' lbs' : '',
+    p.currentAge ? 'Age ' + p.currentAge : '',
+  ].filter(Boolean).join('  /  ');
 
   return `
-    <div class="px-5 sm:px-8 py-8">
-      <!-- Header -->
-      <div class="flex items-end gap-5 mb-6">
-        <img src="${hsUrl}" class="w-24 h-24 rounded-2xl object-cover bg-surface-elevated shadow-diffused" onerror="this.style.display='none'" />
-        <div class="min-w-0 flex-1 pb-1">
-          <h1 class="font-sans text-2xl sm:text-3xl font-bold text-ink leading-tight truncate">${p.fullName || '?'}</h1>
-          <div class="flex items-center gap-2 mt-1.5">
-            ${teamLogo ? `<img src="${teamLogo}" class="w-5 h-5 object-contain" />` : ''}
-            <span class="font-mono text-xs text-ink-secondary">${p.currentTeam?.name || ''}</span>
-            <span class="font-mono text-xs text-ink-muted">#${p.primaryNumber || ''} / ${p.primaryPosition?.name || ''}</span>
-          </div>
-        </div>
-      </div>
+    <div class="p-5 sm:p-8">
+      ${header(hsUrl, p.fullName || '?', teamLogo, p.currentTeam?.name || '', details)}
 
-      <!-- Bio -->
-      <div class="rounded-2xl bg-surface-elevated/30 border border-ink-faint/8 p-4 divide-y divide-ink-faint/8">
-        ${bio('Height', p.height)}
-        ${bio('Weight', p.weight ? p.weight + ' lbs' : '')}
-        ${bio('Age', `${p.currentAge || ''}${p.birthDate ? '  --  Born ' + p.birthDate : ''}`)}
-        ${bio('Born in', `${p.birthCity || ''}${p.birthStateProvince ? ', ' + p.birthStateProvince : ''}, ${p.birthCountry || ''}`)}
-        ${bio('Bats/Throws', `${p.batSide?.description || '?'} / ${p.pitchHand?.description || '?'}`)}
-        ${bio('MLB Debut', p.mlbDebutDate || '')}
-        ${bio('Active', p.active ? 'Yes' : 'No')}
-      </div>
+      ${bioGrid([
+        ['Born', p.birthDate || ''],
+        ['Birthplace', `${p.birthCity || ''}${p.birthStateProvince ? ', ' + p.birthStateProvince : ''}`],
+        ['Nationality', p.birthCountry || ''],
+        ['Bats / Throws', `${p.batSide?.description || '?'} / ${p.pitchHand?.description || '?'}`],
+        ['MLB Debut', p.mlbDebutDate || ''],
+        ['Status', p.active ? 'Active' : 'Inactive'],
+      ])}
 
-      <!-- Hitting Career -->
-      ${hitCareer ? `
-        ${section('Career Hitting')}
-        <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
-          ${numCard('G', hitCareer.gamesPlayed)}${numCard('AVG', hitCareer.avg)}${numCard('HR', hitCareer.homeRuns)}
-          ${numCard('RBI', hitCareer.rbi)}${numCard('OPS', hitCareer.ops)}${numCard('SB', hitCareer.stolenBases)}
-        </div>
-      ` : ''}
+      ${hitCareer ? `${sec('Career Hitting')}
+        <div class="grid grid-cols-4 sm:grid-cols-6 gap-4 sm:gap-6">
+          ${stat('G', hitCareer.gamesPlayed)}${stat('AVG', hitCareer.avg)}${stat('HR', hitCareer.homeRuns)}
+          ${stat('RBI', hitCareer.rbi)}${stat('OPS', hitCareer.ops)}${stat('SB', hitCareer.stolenBases)}
+        </div>` : ''}
 
-      <!-- Pitching Career -->
-      ${pitchCareer ? `
-        ${section('Career Pitching')}
-        <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
-          ${numCard('G', pitchCareer.gamesPlayed)}${numCard('ERA', pitchCareer.era)}${numCard('W-L', (pitchCareer.wins || 0) + '-' + (pitchCareer.losses || 0))}
-          ${numCard('SO', pitchCareer.strikeOuts)}${numCard('WHIP', pitchCareer.whip)}${numCard('SV', pitchCareer.saves)}
-        </div>
-      ` : ''}
+      ${pitchCareer ? `${sec('Career Pitching')}
+        <div class="grid grid-cols-4 sm:grid-cols-6 gap-4 sm:gap-6">
+          ${stat('G', pitchCareer.gamesPlayed)}${stat('ERA', pitchCareer.era)}
+          ${stat('W-L', (pitchCareer.wins||0)+'-'+(pitchCareer.losses||0))}
+          ${stat('SO', pitchCareer.strikeOuts)}${stat('WHIP', pitchCareer.whip)}${stat('SV', pitchCareer.saves)}
+        </div>` : ''}
 
-      <!-- Hitting Year-by-Year -->
-      ${isHitter && hitYby.length > 0 ? `
-        ${section('Hitting by Season')}
+      ${hitYby.length > 0 ? `${sec('Hitting by Season')}
         <div class="rounded-2xl bg-surface-card border border-ink-faint/15 overflow-x-auto">
-          <table class="w-full text-sm font-mono tabular-nums min-w-[700px]">
-            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/30 text-[10px] text-ink-muted uppercase tracking-widest">
-              <th class="text-left px-3 py-2">Year</th><th class="text-left px-2 py-2">Team</th>
-              <th class="text-center px-2 py-2">G</th><th class="text-center px-2 py-2">AB</th>
-              <th class="text-center px-2 py-2">R</th><th class="text-center px-2 py-2">H</th>
-              <th class="text-center px-2 py-2">2B</th><th class="text-center px-2 py-2">HR</th>
-              <th class="text-center px-2 py-2">RBI</th><th class="text-center px-2 py-2">SB</th>
-              <th class="text-center px-2 py-2">BB</th><th class="text-center px-2 py-2">SO</th>
-              <th class="text-center px-2 py-2 font-semibold text-accent">AVG</th>
-              <th class="text-center px-2 py-2">OBP</th><th class="text-center px-2 py-2">SLG</th>
-              <th class="text-center px-2 py-2">OPS</th>
+          <table class="w-full text-[12px] font-mono tabular-nums">
+            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/40 text-[9px] text-ink-muted uppercase tracking-widest">
+              <th class="text-left px-3 py-2 sticky left-0 bg-surface-elevated/40">Year</th>
+              <th class="text-left px-2 py-2">Team</th>
+              ${th('G')}${th('AB')}${th('H')}${th('HR')}${th('RBI')}${th('SB', 'hidden sm:table-cell')}
+              ${th('BB', 'hidden md:table-cell')}${th('SO', 'hidden md:table-cell')}
+              ${th('AVG', 'font-semibold text-accent')}${th('OBP', 'hidden sm:table-cell')}
+              ${th('SLG', 'hidden sm:table-cell')}${th('OPS')}
             </tr></thead>
             <tbody>
-              ${hitYby.map(s => { const t = s.stat; return `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
-                <td class="px-3 py-2 text-ink-secondary text-xs">${s.season}</td>
-                <td class="px-2 py-2 text-ink-secondary text-xs">${s.team?.name || ''}</td>
-                <td class="text-center px-2 py-2">${t.gamesPlayed ?? '-'}</td><td class="text-center px-2 py-2">${t.atBats ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.runs ?? '-'}</td><td class="text-center px-2 py-2">${t.hits ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.doubles ?? '-'}</td><td class="text-center px-2 py-2">${t.homeRuns ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.rbi ?? '-'}</td><td class="text-center px-2 py-2">${t.stolenBases ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.baseOnBalls ?? '-'}</td><td class="text-center px-2 py-2">${t.strikeOuts ?? '-'}</td>
-                <td class="text-center px-2 py-2 font-semibold text-ink">${t.avg ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.obp ?? '-'}</td><td class="text-center px-2 py-2">${t.slg ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.ops ?? '-'}</td>
-              </tr>`; }).join('')}
+              ${hitYby.map(s => { const t = s.stat; const tl = s.team?.id ? `https://www.mlbstatic.com/team-logos/${s.team.id}.svg` : '';
+                return `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
+                  <td class="px-3 py-2 text-ink-muted text-[11px] sticky left-0 bg-surface-card whitespace-nowrap">${s.season}</td>
+                  <td class="px-2 py-2 whitespace-nowrap"><div class="flex items-center gap-1.5">${logoImg(tl, 'w-4 h-4')}<span class="text-ink-secondary text-[11px]">${s.team?.abbreviation || s.team?.name || ''}</span></div></td>
+                  ${td(t.gamesPlayed)}${td(t.atBats)}${td(t.hits)}${td(t.homeRuns)}${td(t.rbi)}
+                  ${td(t.stolenBases, 'hidden sm:table-cell')}${td(t.baseOnBalls, 'hidden md:table-cell')}${td(t.strikeOuts, 'hidden md:table-cell')}
+                  ${td(t.avg, 'font-semibold text-ink')}${td(t.obp, 'hidden sm:table-cell')}
+                  ${td(t.slg, 'hidden sm:table-cell')}${td(t.ops)}
+                </tr>`; }).join('')}
             </tbody>
           </table>
-        </div>
-      ` : ''}
+        </div>` : ''}
 
-      <!-- Pitching Year-by-Year -->
-      ${isPitcher && pitchYby.length > 0 ? `
-        ${section('Pitching by Season')}
+      ${pitchYby.length > 0 ? `${sec('Pitching by Season')}
         <div class="rounded-2xl bg-surface-card border border-ink-faint/15 overflow-x-auto">
-          <table class="w-full text-sm font-mono tabular-nums min-w-[700px]">
-            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/30 text-[10px] text-ink-muted uppercase tracking-widest">
-              <th class="text-left px-3 py-2">Year</th><th class="text-left px-2 py-2">Team</th>
-              <th class="text-center px-2 py-2">G</th><th class="text-center px-2 py-2">GS</th>
-              <th class="text-center px-2 py-2">W</th><th class="text-center px-2 py-2">L</th>
-              <th class="text-center px-2 py-2 font-semibold text-accent">ERA</th>
-              <th class="text-center px-2 py-2">IP</th><th class="text-center px-2 py-2">H</th>
-              <th class="text-center px-2 py-2">ER</th><th class="text-center px-2 py-2">BB</th>
-              <th class="text-center px-2 py-2">SO</th><th class="text-center px-2 py-2">WHIP</th>
-              <th class="text-center px-2 py-2">SV</th>
+          <table class="w-full text-[12px] font-mono tabular-nums">
+            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/40 text-[9px] text-ink-muted uppercase tracking-widest">
+              <th class="text-left px-3 py-2 sticky left-0 bg-surface-elevated/40">Year</th>
+              <th class="text-left px-2 py-2">Team</th>
+              ${th('G')}${th('GS', 'hidden sm:table-cell')}${th('W')}${th('L')}
+              ${th('ERA', 'font-semibold text-accent')}${th('IP')}${th('SO')}
+              ${th('BB', 'hidden sm:table-cell')}${th('WHIP')}${th('SV', 'hidden md:table-cell')}
             </tr></thead>
             <tbody>
-              ${pitchYby.map(s => { const t = s.stat; return `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
-                <td class="px-3 py-2 text-ink-secondary text-xs">${s.season}</td>
-                <td class="px-2 py-2 text-ink-secondary text-xs">${s.team?.name || ''}</td>
-                <td class="text-center px-2 py-2">${t.gamesPlayed ?? '-'}</td><td class="text-center px-2 py-2">${t.gamesStarted ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.wins ?? '-'}</td><td class="text-center px-2 py-2">${t.losses ?? '-'}</td>
-                <td class="text-center px-2 py-2 font-semibold text-ink">${t.era ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.inningsPitched ?? '-'}</td><td class="text-center px-2 py-2">${t.hits ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.earnedRuns ?? '-'}</td><td class="text-center px-2 py-2">${t.baseOnBalls ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.strikeOuts ?? '-'}</td><td class="text-center px-2 py-2">${t.whip ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.saves ?? '-'}</td>
-              </tr>`; }).join('')}
+              ${pitchYby.map(s => { const t = s.stat; const tl = s.team?.id ? `https://www.mlbstatic.com/team-logos/${s.team.id}.svg` : '';
+                return `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
+                  <td class="px-3 py-2 text-ink-muted text-[11px] sticky left-0 bg-surface-card whitespace-nowrap">${s.season}</td>
+                  <td class="px-2 py-2 whitespace-nowrap"><div class="flex items-center gap-1.5">${logoImg(tl, 'w-4 h-4')}<span class="text-ink-secondary text-[11px]">${s.team?.abbreviation || s.team?.name || ''}</span></div></td>
+                  ${td(t.gamesPlayed)}${td(t.gamesStarted, 'hidden sm:table-cell')}${td(t.wins)}${td(t.losses)}
+                  ${td(t.era, 'font-semibold text-ink')}${td(t.inningsPitched)}${td(t.strikeOuts)}
+                  ${td(t.baseOnBalls, 'hidden sm:table-cell')}${td(t.whip)}${td(t.saves, 'hidden md:table-cell')}
+                </tr>`; }).join('')}
             </tbody>
           </table>
-        </div>
-      ` : ''}
+        </div>` : ''}
 
-      <!-- Game Log -->
-      ${gameLog.length > 0 ? `
-        ${section('2026 Game Log')}
+      ${gameLog.length > 0 ? `${sec('2026 Game Log')}
         <div class="rounded-2xl bg-surface-card border border-ink-faint/15 overflow-x-auto">
-          <table class="w-full text-sm font-mono tabular-nums min-w-[600px]">
-            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/30 text-[10px] text-ink-muted uppercase tracking-widest">
-              <th class="text-left px-3 py-2">Date</th><th class="text-left px-2 py-2">Opp</th>
-              <th class="text-center px-2 py-2">AB</th><th class="text-center px-2 py-2">R</th>
-              <th class="text-center px-2 py-2">H</th><th class="text-center px-2 py-2">HR</th>
-              <th class="text-center px-2 py-2">RBI</th><th class="text-center px-2 py-2">BB</th>
-              <th class="text-center px-2 py-2">SO</th><th class="text-center px-2 py-2 font-semibold text-accent">AVG</th>
+          <table class="w-full text-[12px] font-mono tabular-nums">
+            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/40 text-[9px] text-ink-muted uppercase tracking-widest">
+              <th class="text-left px-3 py-2">Date</th><th class="text-center px-2 py-2">Opp</th>
+              ${th('AB')}${th('R')}${th('H')}${th('HR')}${th('RBI')}${th('BB', 'hidden sm:table-cell')}${th('SO', 'hidden sm:table-cell')}${th('AVG', 'font-semibold text-accent')}
             </tr></thead>
-            <tbody>
-              ${gameLog.slice(0, 20).map(g => { const t = g.stat; return `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
-                <td class="px-3 py-2 text-ink-muted text-xs">${g.date || ''}</td>
-                <td class="px-2 py-2 text-ink-secondary text-xs">${g.isHome ? 'vs' : '@'} ${g.opponent?.abbreviation || ''}</td>
-                <td class="text-center px-2 py-2">${t.atBats ?? '-'}</td><td class="text-center px-2 py-2">${t.runs ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.hits ?? '-'}</td><td class="text-center px-2 py-2">${t.homeRuns ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.rbi ?? '-'}</td><td class="text-center px-2 py-2">${t.baseOnBalls ?? '-'}</td>
-                <td class="text-center px-2 py-2">${t.strikeOuts ?? '-'}</td>
-                <td class="text-center px-2 py-2 font-semibold text-ink">${t.avg ?? '-'}</td>
-              </tr>`; }).join('')}
-            </tbody>
+            <tbody>${gameLog.slice(0, 20).map(g => { const t = g.stat; return `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
+              <td class="px-3 py-2 text-ink-muted whitespace-nowrap">${g.date || ''}</td>
+              <td class="text-center px-2 py-2 text-ink-secondary whitespace-nowrap">${g.isHome ? 'vs' : '@'} ${g.opponent?.abbreviation || ''}</td>
+              ${td(t.atBats)}${td(t.runs)}${td(t.hits)}${td(t.homeRuns)}${td(t.rbi)}
+              ${td(t.baseOnBalls, 'hidden sm:table-cell')}${td(t.strikeOuts, 'hidden sm:table-cell')}${td(t.avg, 'font-semibold text-ink')}
+            </tr>`; }).join('')}</tbody>
           </table>
-        </div>
-      ` : ''}
+        </div>` : ''}
 
-      <!-- Awards -->
-      ${Object.keys(awardMap).length > 0 ? `
-        ${section('Awards')}
-        <div class="space-y-1.5">
-          ${Object.entries(awardMap).map(([name, years]) =>
-            `<div class="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-elevated/30">
-              <span class="font-sans text-sm text-ink">${name}</span>
-              <span class="font-mono text-[10px] text-ink-muted">${years.sort().join(', ')}</span>
-            </div>`
-          ).join('')}
-        </div>
-      ` : ''}
+      ${awardBadges(awards)}
     </div>
   `;
 }
 
-/* ── ESPN (NBA/NFL) ── */
+/* ══════════════════════════════════════════════
+   ESPN (NBA / NFL)
+   ══════════════════════════════════════════════ */
 async function loadEspn(sport, league, id) {
   const base = `https://site.web.api.espn.com/apis/common/v3/sports/${sport}/${league}/athletes/${id}`;
   const [bioRes, statsRes, overviewRes, logRes] = await Promise.all([
     fetch(base), fetch(`${base}/stats`), fetch(`${base}/overview`), fetch(`${base}/gamelog?season=2026`),
   ]);
-  const bioData = await bioRes.json();
-  const statsData = await statsRes.json();
-  const overviewData = await overviewRes.json();
-  const logData = await logRes.json();
-  return { bio: bioData.athlete || bioData, stats: statsData, overview: overviewData, gamelog: logData };
+  return {
+    bio: ((await bioRes.json()).athlete || {}),
+    stats: await statsRes.json(),
+    overview: await overviewRes.json(),
+    gamelog: await logRes.json(),
+    sport, league,
+  };
 }
 
-function renderEspn(data, league) {
-  const a = data.bio;
-  const statsCategories = data.stats?.categories || [];
-  const awards = data.overview?.awards || [];
+function renderEspn(data) {
+  const { bio: a, stats: statsData, overview, gamelog, sport, league } = data;
+  const statsCategories = statsData?.categories || [];
   const injury = a.injuries?.[0];
   const summaryStats = a.statsSummary?.statistics || [];
-  const hsUrl = hs(a.headshot?.href);
+  const hsUrl = espnHs(a.headshot?.href);
   const teamLogo = a.team?.logos?.[0]?.href || '';
 
-  // Year-by-year: first category has the primary stats
   const primary = statsCategories[0];
   const labels = primary?.labels || [];
   const seasons = primary?.statistics || [];
   const totals = primary?.totals || [];
 
-  // Game log
-  const glLabels = data.gamelog?.labels || [];
-  const glNames = data.gamelog?.names || [];
-  const glEvents = data.gamelog?.seasonTypes?.flatMap(st => st.categories?.flatMap(c => c.events || []) || []) || [];
+  const glLabels = gamelog?.labels || [];
+  const glEvents = gamelog?.seasonTypes?.flatMap(st => st.categories?.flatMap(c => c.events || []) || []) || [];
+
+  const rawAwards = overview?.awards || [];
+  const awards = rawAwards.map(a => ({ name: a.name || 'Award', count: parseInt(a.displayCount) || 1 }));
+
+  const details = [
+    a.displayJersey || '',
+    a.position?.displayName || '',
+    a.displayHeight || '',
+    a.displayWeight || '',
+    a.age ? 'Age ' + a.age : '',
+  ].filter(Boolean).join('  /  ');
 
   return `
-    <div class="px-5 sm:px-8 py-8">
-      <!-- Header -->
-      <div class="flex items-end gap-5 mb-6">
-        ${hsUrl ? `<img src="${hsUrl}" class="w-24 h-24 rounded-2xl object-cover bg-surface-elevated shadow-diffused" onerror="this.style.display='none'" />` : `<div class="w-24 h-24 rounded-2xl bg-surface-elevated"></div>`}
-        <div class="min-w-0 flex-1 pb-1">
-          <h1 class="font-sans text-2xl sm:text-3xl font-bold text-ink leading-tight truncate">${a.displayName || '?'}</h1>
-          <div class="flex items-center gap-2 mt-1.5">
-            ${teamLogo ? `<img src="${teamLogo}" class="w-5 h-5 object-contain" />` : ''}
-            <span class="font-mono text-xs text-ink-secondary">${a.team?.displayName || ''}</span>
-            <span class="font-mono text-xs text-ink-muted">${a.displayJersey || ''} / ${a.position?.displayName || ''}</span>
-          </div>
-        </div>
-      </div>
+    <div class="p-5 sm:p-8">
+      ${header(hsUrl, a.displayName || '?', teamLogo, a.team?.displayName || '', details)}
 
-      <!-- Bio -->
-      <div class="rounded-2xl bg-surface-elevated/30 border border-ink-faint/8 p-4 divide-y divide-ink-faint/8">
-        ${bio('Height', a.displayHeight)}
-        ${bio('Weight', a.displayWeight)}
-        ${bio('Age', `${a.age || ''}${a.displayDOB ? '  --  Born ' + a.displayDOB : ''}`)}
-        ${bio('Born in', a.displayBirthPlace)}
-        ${bio('Draft', a.displayDraft)}
-        ${bio('Experience', a.displayExperience)}
-        ${a.college?.name ? bio('College', a.college.name) : ''}
-      </div>
+      ${bioGrid([
+        ['Born', a.displayDOB || ''],
+        ['Birthplace', a.displayBirthPlace || ''],
+        ['Draft', a.displayDraft || ''],
+        ['Experience', a.displayExperience || ''],
+        ['College', a.college?.name || ''],
+        ['Status', a.status?.type || ''],
+      ])}
 
-      <!-- Injury -->
-      ${injury ? `
-        <div class="mt-4 p-4 rounded-2xl bg-live-soft border border-live/15">
-          <div class="font-mono text-[10px] text-live uppercase tracking-widest mb-1">Injury</div>
-          <p class="font-sans text-sm text-ink-secondary leading-relaxed">${injury.longComment || injury.shortComment || ''}</p>
-        </div>
-      ` : ''}
+      ${injury ? `<div class="mt-4 p-4 rounded-2xl bg-live-soft/50 border border-live/10">
+        <div class="font-mono text-[10px] text-live uppercase tracking-widest mb-1 font-semibold">Injury</div>
+        <p class="font-sans text-sm text-ink-secondary leading-relaxed">${injury.longComment || injury.shortComment || ''}</p>
+      </div>` : ''}
 
-      <!-- Current Season Summary -->
-      ${summaryStats.length > 0 ? `
-        ${section('Season Stats')}
-        <div class="grid grid-cols-4 gap-2">
-          ${summaryStats.map(s => numCard(s.abbreviation || s.shortDisplayName, s.displayValue)).join('')}
-        </div>
-        <div class="flex flex-wrap gap-2 mt-3">
-          ${summaryStats.filter(s => s.rankDisplayValue).map(s =>
-            `<span class="px-2.5 py-1 rounded-lg bg-surface-elevated font-mono text-[10px] text-ink-secondary">
-              ${s.abbreviation}: <span class="text-accent font-semibold">${s.rankDisplayValue}</span> in ${league.toUpperCase()}
-            </span>`
-          ).join('')}
-        </div>
-      ` : ''}
+      ${summaryStats.length > 0 ? `${sec('Season Stats')}
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+          ${summaryStats.map(s => stat(s.abbreviation || s.shortDisplayName, s.displayValue, s.rankDisplayValue ? s.rankDisplayValue + ' in ' + league.toUpperCase() : '')).join('')}
+        </div>` : ''}
 
-      <!-- Year-by-Year -->
-      ${seasons.length > 0 ? `
-        ${section('Season History')}
+      ${seasons.length > 0 ? `${sec('Season History')}
         <div class="rounded-2xl bg-surface-card border border-ink-faint/15 overflow-x-auto">
-          <table class="w-full text-sm font-mono tabular-nums">
-            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/30 text-[10px] text-ink-muted uppercase tracking-widest">
-              <th class="text-left px-3 py-2">Season</th><th class="text-left px-2 py-2">Team</th>
-              ${labels.map(l => `<th class="text-center px-2 py-2">${l}</th>`).join('')}
+          <table class="w-full text-[12px] font-mono tabular-nums">
+            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/40 text-[9px] text-ink-muted uppercase tracking-widest">
+              <th class="text-left px-3 py-2 sticky left-0 bg-surface-elevated/40 whitespace-nowrap">Season</th>
+              <th class="text-left px-2 py-2 whitespace-nowrap">Team</th>
+              ${labels.map(l => `<th class="text-center px-1.5 py-2 whitespace-nowrap">${l}</th>`).join('')}
             </tr></thead>
             <tbody>
-              ${seasons.map(s => `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
-                <td class="px-3 py-2 text-ink-secondary text-xs">${s.season?.displayName || ''}</td>
-                <td class="px-2 py-2 text-ink-secondary text-xs">${s.teamSlug?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || ''}</td>
-                ${(s.stats || []).map((v, i) => `<td class="text-center px-2 py-2 ${i === labels.length - 1 ? 'font-semibold text-ink' : ''}">${v}</td>`).join('')}
-              </tr>`).join('')}
-              ${totals.length ? `<tr class="border-t-2 border-ink-faint/20 font-semibold bg-surface-elevated/20">
-                <td class="px-3 py-2 text-ink text-xs" colspan="2">Career</td>
-                ${totals.map((v, i) => `<td class="text-center px-2 py-2 ${i === labels.length - 1 ? 'text-ink' : 'text-ink-secondary'}">${v}</td>`).join('')}
+              ${seasons.filter(s => !s.displayName?.includes('Total')).map(s => {
+                const isTotals = false;
+                const logo = s.teamId ? espnTeamLogo(sport === 'football' ? 'nfl' : sport === 'basketball' ? 'nba' : 'nhl', s.teamId, 20) : '';
+                const tName = teamNameFromSlug(s.teamSlug);
+                return `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
+                  <td class="px-3 py-2 text-ink-muted text-[11px] sticky left-0 bg-surface-card whitespace-nowrap">${s.season?.displayName || ''}</td>
+                  <td class="px-2 py-2 whitespace-nowrap"><div class="flex items-center gap-1.5">${logoImg(logo, 'w-4 h-4')}<span class="text-ink-secondary text-[11px]">${tName}</span></div></td>
+                  ${(s.stats || []).map(v => `<td class="text-center px-1.5 py-2 whitespace-nowrap">${v}</td>`).join('')}
+                </tr>`;
+              }).join('')}
+              ${totals.length ? `<tr class="border-t-2 border-ink-faint/15 font-semibold bg-surface-elevated/20">
+                <td class="px-3 py-2.5 text-ink text-[11px] sticky left-0 bg-surface-elevated/20 whitespace-nowrap" colspan="2">Career</td>
+                ${totals.map(v => `<td class="text-center px-1.5 py-2.5 whitespace-nowrap text-ink">${v}</td>`).join('')}
               </tr>` : ''}
             </tbody>
           </table>
-        </div>
-      ` : ''}
+        </div>` : ''}
 
-      <!-- Game Log -->
-      ${glEvents.length > 0 ? `
-        ${section('Game Log')}
+      ${glEvents.length > 0 ? `${sec('Game Log')}
         <div class="rounded-2xl bg-surface-card border border-ink-faint/15 overflow-x-auto">
-          <table class="w-full text-sm font-mono tabular-nums">
-            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/30 text-[10px] text-ink-muted uppercase tracking-widest">
-              ${glLabels.map(l => `<th class="text-center px-2 py-2">${l}</th>`).join('')}
+          <table class="w-full text-[12px] font-mono tabular-nums">
+            <thead><tr class="border-b border-ink-faint/10 bg-surface-elevated/40 text-[9px] text-ink-muted uppercase tracking-widest">
+              ${glLabels.map(l => `<th class="text-center px-1.5 py-2 whitespace-nowrap">${l}</th>`).join('')}
             </tr></thead>
-            <tbody>
-              ${glEvents.slice(0, 20).map(ev => `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
-                ${(ev.stats || []).map(v => `<td class="text-center px-2 py-2">${v}</td>`).join('')}
-              </tr>`).join('')}
-            </tbody>
+            <tbody>${glEvents.slice(0, 20).map(ev =>
+              `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
+                ${(ev.stats || []).map(v => `<td class="text-center px-1.5 py-2 whitespace-nowrap">${v}</td>`).join('')}
+              </tr>`
+            ).join('')}</tbody>
           </table>
-        </div>
-      ` : ''}
+        </div>` : ''}
 
-      <!-- Awards -->
-      ${awards.length > 0 ? `
-        ${section('Awards')}
-        <div class="space-y-1.5">
-          ${awards.map(a =>
-            `<div class="flex items-center justify-between px-3 py-2 rounded-xl bg-surface-elevated/30">
-              <span class="font-sans text-sm text-ink">${a.name || 'Award'}</span>
-              <span class="font-mono text-[10px] text-ink-muted">${(a.seasons || []).join(', ')} ${a.displayCount ? '(' + a.displayCount + ')' : ''}</span>
-            </div>`
-          ).join('')}
-        </div>
-      ` : ''}
+      ${awardBadges(awards)}
     </div>
   `;
 }
 
-/* ── Page Component ── */
+/* ══════════════════════════════════════════════
+   Page Component
+   ══════════════════════════════════════════════ */
 export function PlayerPage(container, params, query) {
   const id = params.id;
   const league = query.league || 'nba';
   const name = query.name || '';
 
-  container.innerHTML = `<div class="max-w-3xl mx-auto">${skeleton()}</div>`;
+  container.innerHTML = skeleton();
 
   async function load() {
     try {
       let html = '';
 
       if (league === 'nhl') {
-        const data = await loadNhl(name || id);
-        html = renderNhl(data);
+        html = renderNhl(await loadNhl(name || id));
       } else if (league === 'mlb') {
         const data = await loadMlb(id);
         if (!data) throw new Error('Not found');
         html = renderMlb(data);
       } else {
         const sport = league === 'nfl' ? 'football' : 'basketball';
-        const data = await loadEspn(sport, league, id);
-        html = renderEspn(data, league);
+        html = renderEspn(await loadEspn(sport, league, id));
       }
 
       container.innerHTML = `
-        <div class="max-w-3xl mx-auto">
-          <div class="pt-4 px-4 sm:px-0 mb-2">
-            <a href="#/stats" class="inline-flex items-center gap-2 font-mono text-[11px] uppercase
-                              tracking-widest text-ink-muted hover:text-ink
-                              transition-colors duration-300 no-underline group">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                   class="transition-transform duration-300 group-hover:-translate-x-0.5">
-                <path d="m15 18-6-6 6-6"/>
-              </svg>
-              Stats
-            </a>
-          </div>
+        <div class="max-w-3xl mx-auto pt-4 pb-12">
+          <div class="px-4 sm:px-0 mb-3">${backLink()}</div>
           <div class="rounded-3xl bg-surface-card border border-ink-faint/15 shadow-diffused overflow-hidden opacity-0 animate-fade-up">
             ${html}
           </div>
@@ -552,12 +490,10 @@ export function PlayerPage(container, params, query) {
       `;
     } catch (err) {
       console.error('Player page error:', err);
-      container.innerHTML = `
-        <div class="max-w-3xl mx-auto pt-8 text-center">
-          <p class="font-mono text-sm text-ink-muted mb-4">Player not found</p>
-          <a href="#/stats" class="font-mono text-xs text-accent hover:underline">Back to Stats</a>
-        </div>
-      `;
+      container.innerHTML = `<div class="max-w-3xl mx-auto pt-8 text-center">
+        <p class="font-mono text-sm text-ink-muted mb-4">Player not found</p>
+        <a href="#/stats" class="font-mono text-xs text-accent hover:underline">Back to Stats</a>
+      </div>`;
     }
   }
 
