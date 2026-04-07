@@ -75,6 +75,10 @@
   .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
 
+  /* Sortable table headers */
+  thead th { cursor: pointer; user-select: none; transition: color 0.15s ease; }
+  thead th:hover { color: var(--color-ink); }
+
   /* Horizontal pill scroll containers — momentum + no scrollbar */
   .pill-scroll {
     overflow-x: auto;

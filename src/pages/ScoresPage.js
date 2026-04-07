@@ -6,6 +6,7 @@
 import { state } from '../lib/state.js';
 import { SUPPORTED_LEAGUES, getLeagueName, LEAGUE_CONFIGS } from '../config.js';
 import { delegate } from '../lib/dom.js';
+import { enableTableSort } from '../lib/table-sort.js';
 
 /* ── Endpoints ── */
 const ESPN_SB = {
@@ -262,7 +263,7 @@ function renderEspnDetail(summary, league) {
                 ${(a.stats || []).map(v => `<td class="text-center px-1.5 py-1.5">${v}</td>`).join('')}
               </tr>`;
             }).join('')}
-            ${cat.totals ? `<tr class="border-t-2 border-ink-faint/15 font-semibold bg-surface-elevated/20">
+            ${cat.totals ? `<tr class="border-t-2 border-ink-faint/15 font-semibold bg-surface-elevated/20" data-sort-pin>
               <td class="px-2 py-1.5 sticky left-0 bg-surface-elevated/20 text-ink text-[10px]">TOTALS</td>
               ${cat.totals.map(v => `<td class="text-center px-1.5 py-1.5">${v}</td>`).join('')}
             </tr>` : ''}
@@ -542,6 +543,7 @@ export function ScoresPage(container) {
         <div data-tab-content="plays" class="hidden max-h-96 overflow-y-auto">${detail.playsHtml}</div>
         <div data-tab-content="info" class="hidden">${detail.infoHtml}</div>
       </div>`;
+      enableTableSort(panel);
     } catch (err) {
       console.error(err);
       panel.innerHTML = '<p class="text-ink-muted text-center py-6 font-mono text-sm">Failed to load details</p>';

@@ -3,6 +3,8 @@
  * NHL: api-web.nhle.com, MLB: statsapi.mlb.com, NBA/NFL: ESPN.
  */
 
+import { enableTableSort } from '../lib/table-sort.js';
+
 /* ── Shared helpers ── */
 function espnHs(url, size = 200) {
   if (!url) return '';
@@ -342,6 +344,43 @@ function renderMlb(p) {
   `;
 }
 
+/* ── ESPN compound stat splitter ──
+   ESPN returns "FG" as "10.8-22.8" (made-attempted). Split into FGM/FGA columns. */
+const SPLIT_MAP = { 'FG': ['FGM', 'FGA'], '3PT': ['3PM', '3PA'], 'FT': ['FTM', 'FTA'] };
+function expandLabelsAndStats(labels, statsRows, totalsRow) {
+  const newLabels = [];
+  const expandIndices = []; // [origIdx, splitLabel1, splitLabel2] or [origIdx, null]
+  labels.forEach((l, i) => {
+    if (SPLIT_MAP[l]) {
+      newLabels.push(SPLIT_MAP[l][0], SPLIT_MAP[l][1]);
+      expandIndices.push([i, true]);
+    } else {
+      newLabels.push(l);
+      expandIndices.push([i, false]);
+    }
+  });
+
+  function expandRow(stats) {
+    const out = [];
+    expandIndices.forEach(([i, split]) => {
+      const v = stats[i] ?? '-';
+      if (split) {
+        const parts = String(v).split('-');
+        out.push(parts[0] ?? '-', parts[1] ?? '-');
+      } else {
+        out.push(v);
+      }
+    });
+    return out;
+  }
+
+  return {
+    labels: newLabels,
+    seasons: statsRows.map(s => ({ ...s, stats: expandRow(s.stats || []) })),
+    totals: totalsRow ? expandRow(totalsRow) : [],
+  };
+}
+
 /* ══════════════════════════════════════════════
    ESPN (NBA / NFL)
    ══════════════════════════════════════════════ */
@@ -368,12 +407,19 @@ function renderEspn(data) {
   const teamLogo = a.team?.logos?.[0]?.href || '';
 
   const primary = statsCategories[0];
-  const labels = primary?.labels || [];
-  const seasons = primary?.statistics || [];
-  const totals = primary?.totals || [];
+  const rawLabels = primary?.labels || [];
+  const rawSeasons = (primary?.statistics || []).filter(s => !s.displayName?.includes('Total'));
+  const rawTotals = primary?.totals || [];
+  const exp = expandLabelsAndStats(rawLabels, rawSeasons, rawTotals);
+  const labels = exp.labels;
+  const seasons = exp.seasons;
+  const totals = exp.totals;
 
-  const glLabels = gamelog?.labels || [];
-  const glEvents = gamelog?.seasonTypes?.flatMap(st => st.categories?.flatMap(c => c.events || []) || []) || [];
+  const rawGlLabels = gamelog?.labels || [];
+  const rawGlEvents = gamelog?.seasonTypes?.flatMap(st => st.categories?.flatMap(c => c.events || []) || []) || [];
+  const glExp = expandLabelsAndStats(rawGlLabels, rawGlEvents.map(ev => ({ stats: ev.stats })), null);
+  const glLabels = glExp.labels;
+  const glEvents = glExp.seasons.map((s, i) => ({ ...rawGlEvents[i], stats: s.stats }));
 
   const rawAwards = overview?.awards || [];
   const awards = rawAwards.map(a => ({ name: a.name || 'Award', count: parseInt(a.displayCount) || 1 }));
@@ -418,8 +464,7 @@ function renderEspn(data) {
               ${labels.map(l => `<th class="text-center px-1.5 py-2 whitespace-nowrap">${l}</th>`).join('')}
             </tr></thead>
             <tbody>
-              ${seasons.filter(s => !s.displayName?.includes('Total')).map(s => {
-                const isTotals = false;
+              ${seasons.map(s => {
                 const logo = s.teamId ? espnTeamLogo(sport === 'football' ? 'nfl' : sport === 'basketball' ? 'nba' : 'nhl', s.teamId, 20) : '';
                 const tName = teamNameFromSlug(s.teamSlug);
                 return `<tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/30">
@@ -428,7 +473,7 @@ function renderEspn(data) {
                   ${(s.stats || []).map(v => `<td class="text-center px-1.5 py-2 whitespace-nowrap">${v}</td>`).join('')}
                 </tr>`;
               }).join('')}
-              ${totals.length ? `<tr class="border-t-2 border-ink-faint/15 font-semibold bg-surface-elevated/20">
+              ${totals.length ? `<tr class="border-t-2 border-ink-faint/15 font-semibold bg-surface-elevated/20" data-sort-pin>
                 <td class="px-3 py-2.5 text-ink text-[11px] sticky left-0 bg-surface-elevated/20 whitespace-nowrap" colspan="2">Career</td>
                 ${totals.map(v => `<td class="text-center px-1.5 py-2.5 whitespace-nowrap text-ink">${v}</td>`).join('')}
               </tr>` : ''}
@@ -488,6 +533,7 @@ export function PlayerPage(container, params, query) {
           </div>
         </div>
       `;
+      enableTableSort(container);
     } catch (err) {
       console.error('Player page error:', err);
       container.innerHTML = `<div class="max-w-3xl mx-auto pt-8 text-center">
