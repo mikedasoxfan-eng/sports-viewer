@@ -358,7 +358,7 @@ function renderMlbTable(splits, cols, activeSortStat, sortAsc) {
             const hsImg = player.id ? `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_96,q_auto:best/v1/people/${player.id}/headshot/67/current` : '';
             const playerUrl = `#/player/${player.id}?league=mlb`;
             return `
-              <tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/40 transition-colors"
+              <tr class="border-b border-ink-faint/5 last:border-0 hover:bg-surface-elevated/40 transition-colors">
                 <td class="px-3 py-2 font-mono text-xs text-ink-muted sticky left-0 bg-surface-card">${i + 1}</td>
                 ${playerCell(player.fullName || '?', `${team.name || ''} \u00b7 ${pos.abbreviation || ''}`, hsImg, logo, playerUrl)}
                 ${cols.map(col => {
