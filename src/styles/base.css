@@ -71,6 +71,21 @@
 
   img { max-width: 100%; height: auto; }
 
+  /* Hide scrollbar but keep scrollable */
+  .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+
+  /* Horizontal pill scroll containers — momentum + no scrollbar */
+  .pill-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  .pill-scroll::-webkit-scrollbar { display: none; }
+  .pill-scroll > * { scroll-snap-align: start; }
+
   /* Theater mode */
   body.theater-mode #navbar-mount {
     opacity: 0;

@@ -430,7 +430,7 @@ export function StatsPage(container) {
         </div>
 
         ${showTabs ? `
-          <div class="flex items-center gap-1 mb-6 pb-5 border-b border-ink-faint/8 overflow-x-auto scrollbar-none -mx-1 px-1">
+          <div class="flex items-center gap-1 mb-6 pb-5 border-b border-ink-faint/8 pill-scroll -mx-1 px-1">
             ${tabs.map(t =>
               `<button class="filter-pill whitespace-nowrap shrink-0 ${t.id === active.id ? 'active' : ''}" data-stats-tab="${t.id}">${t.label}</button>`
             ).join('')}
